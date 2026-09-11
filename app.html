@@ -1,0 +1,2701 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Живое Наследие</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Jost:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:#e9e4d6;font-family:'Jost',sans-serif;color:#22301F;}
+.serif{font-family:'Playfair Display',serif;}
+#shell{max-width:480px;margin:0 auto;background:#FAF7F0;min-height:100vh;position:relative;}
+button{font-family:'Jost',sans-serif;cursor:pointer;}
+input,textarea{font-family:'Jost',sans-serif;}
+.navitem{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;}
+.pcard{background:#fff;border-radius:16px;overflow:hidden;border:1px solid #ECE7DA;}
+.chip{font-size:12px;font-weight:600;padding:8px 14px;border-radius:999px;white-space:nowrap;border:1px solid #E4DFD2;color:#4A564E;background:#fff;}
+.chip.active{background:#21362A;color:#F3EEE3;border-color:#21362A;}
+.addbtn{display:block;width:100%;text-align:center;background:#EEF4EC;color:#3F5E44;border:1px solid #C9E0C4;padding:8px;border-radius:9px;font-size:11px;font-weight:700;}
+.field{width:100%;background:#fff;border:1.5px solid #E4DFD2;border-radius:14px;padding:13px 15px;font-size:13.5px;color:#21362A;margin-bottom:10px;outline:none;}
+.field::placeholder{color:#A9A398;}
+.field.error{border-color:#C97A5A;}
+.errtext{color:#C97A5A;font-size:11px;margin:-6px 0 10px;}
+.opt{display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid #E4DFD2;border-radius:14px;padding:13px 15px;margin-bottom:10px;cursor:pointer;}
+.opt.sel{border-color:#9DC698;background:#EEF4EC;}
+.stepbtn{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#21362A;cursor:pointer;user-select:none;}
+.primary-btn{width:100%;background:#9DC698;color:#21362A;border:none;padding:15px;border-radius:14px;font-size:14.5px;font-weight:800;}
+.primary-btn:disabled{background:#D9D2C1;color:#8A968E;cursor:not-allowed;}
+[hidden]{display:none!important;}
+#shell[data-theme="dark"]{filter:invert(1) hue-rotate(180deg);background:#0e1811;}
+#shell[data-theme="dark"] img{filter:invert(1) hue-rotate(180deg);}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="app"></div>
+</div>
+<script>
+/* ============================== DATA ============================== */
+
+const PRODUCTS = [
+  {id:'seed-kolyuchaya', category:'seedling', speciesKey:'kolyuchaya', name:'Ель колючая', latin:'Picea pungens', height:'20–35 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-el-kolyuchaya.jpg'},
+  {id:'seed-serbskaya', category:'seedling', speciesKey:'serbskaya', name:'Ель сербская', latin:'Picea omorika', height:'20–40 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-el-serbskaya.jpg'},
+  {id:'seed-ayanskaya', category:'seedling', speciesKey:'ayanskaya', name:'Ель аянская', latin:'Picea jezoensis', height:'20–35 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-el-ayanskaya.jpg'},
+  {id:'seed-sibirskaya', category:'seedling', speciesKey:'sibirskaya', name:'Ель сибирская', latin:'Picea obovata', height:'20–40 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-el-sibirskaya.jpg'},
+  {id:'seed-sosna-mugus', category:'seedling', speciesKey:'sosna-mugus', name:'Сосна горная «Мугус»', latin:"Pinus mugo 'Mughus'", height:'5–15 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-sosna-mugus.jpg'},
+  {id:'seed-sosna-pumilio', category:'seedling', speciesKey:'sosna-pumilio', name:'Сосна горная «Пумилио»', latin:"Pinus mugo 'Pumilio'", height:'5–15 см', price:900, pieces:4, unitLabel:'Набор 4 шт', img:'seed-sosna-pumilio.jpg'},
+  {id:'sapling-kolyuchaya', category:'sapling', speciesKey:'kolyuchaya', name:'Ель колючая Р9', latin:'Picea pungens', height:'20–35 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-el-kolyuchaya.jpg'},
+  {id:'sapling-serbskaya', category:'sapling', speciesKey:'serbskaya', name:'Ель сербская Р9', latin:'Picea omorika', height:'20–40 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-el-serbskaya.jpg'},
+  {id:'sapling-ayanskaya', category:'sapling', speciesKey:'ayanskaya', name:'Ель аянская Р9', latin:'Picea jezoensis', height:'20–35 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-el-ayanskaya.jpg'},
+  {id:'sapling-sibirskaya', category:'sapling', speciesKey:'sibirskaya', name:'Ель сибирская Р9', latin:'Picea obovata', height:'20–40 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-el-sibirskaya.jpg'},
+  {id:'sapling-sosna-mugus', category:'sapling', speciesKey:'sosna-mugus', name:'Сосна горная «Мугус» Р9', latin:"Pinus mugo 'Mughus'", height:'10–15 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-sosna-mugus.jpg'},
+  {id:'sapling-sosna-obyknovennaya', category:'sapling', speciesKey:'sosna-obyknovennaya', name:'Сосна обыкновенная Р9', latin:'Pinus sylvestris', height:'20–45 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-sosna-obyknovennaya.jpg'},
+];
+
+const ADULT_PHOTOS = {
+  'kolyuchaya': 'adult-kolyuchaya.jpg',
+  'serbskaya': 'adult-serbskaya.jpg',
+  'ayanskaya': 'adult-ayanskaya.jpg',
+  'sibirskaya': 'adult-sibirskaya.jpg',
+  'sosna-mugus': 'adult-sosna-mugus.jpg',
+  'sosna-pumilio': 'adult-sosna-pumilio.jpg',
+  'sosna-obyknovennaya': 'adult-sosna-obyknovennaya.jpg',
+};
+
+const BULK_PRODUCTS = [
+  {id:'bulk-spruce', bulk:true, category:'bulk', filterGroup:'seedling', name:'Большая коробка сеянцев ели', unitLabel:'Большая коробка · 120 шт', price:14400, pieces:120, options:['seed-kolyuchaya','seed-serbskaya','seed-ayanskaya','seed-sibirskaya']},
+  {id:'bulk-pine', bulk:true, category:'bulk', filterGroup:'seedling', name:'Большая коробка сеянцев горных сосен', unitLabel:'Большая коробка · 156 шт', price:18720, pieces:156, options:['seed-sosna-mugus','seed-sosna-pumilio']},
+  {id:'bulk-sapling', bulk:true, category:'bulk', filterGroup:'sapling', name:'Большая коробка саженцев Р9', unitLabel:'Большая коробка · 24 шт', price:12000, pieces:24, options:['sapling-kolyuchaya','sapling-serbskaya','sapling-ayanskaya','sapling-sibirskaya','sapling-sosna-mugus','sapling-sosna-obyknovennaya']},
+];
+BULK_PRODUCTS.forEach(function(b){ b.img = PRODUCTS.find(function(p){ return p.id===b.options[0]; }).img; });
+
+const ALL_PRODUCTS = PRODUCTS.concat(BULK_PRODUCTS);
+
+const DELIVERY_OPTIONS = [
+  {id:'cdek', name:'СДЭК, пункт выдачи', shortDesc:'По России · 3–7 дней', fullDesc:'Более 20 000 пунктов по России.<br>3–7 дней в зависимости от региона', minDays:3, maxDays:7},
+  {id:'post', name:'Почта России', shortDesc:'По России · 5–10 дней', fullDesc:'Отделение или курьером почты.<br>5–10 дней в зависимости от региона', minDays:5, maxDays:10},
+];
+
+const ORDER_STATUS_LABELS = {
+  pending_payment: 'Ожидает оплаты',
+  paid: 'Оплачен',
+  confirmed: 'Подтверждён',
+  assembling: 'Собирается',
+  shipped: 'Передан в доставку',
+  processing: 'В обработке',
+  delivered: 'Доставлен',
+  cancelled: 'Отменён',
+};
+const ORDER_STATUS_STYLES = {
+  pending_payment: 'background:#F3EEE3;color:#8A968E;',
+  paid: 'background:#E6F1E5;color:#5A8D5F;',
+  confirmed: 'background:#E6F1E5;color:#5A8D5F;',
+  assembling: 'background:#EDEAE0;color:#6B9971;',
+  shipped: 'background:#EAF0F7;color:#4A6FA5;',
+  processing: 'background:#EDEAE0;color:#6B9971;',
+  delivered: 'background:#E6F1E5;color:#5A8D5F;',
+  cancelled: 'background:#F7E6E0;color:#C97A5A;',
+};
+// Порядок статусов в жизненном цикле заказа для UI переключения в админке
+const ORDER_STATUS_FLOW = ['pending_payment','paid','confirmed','assembling','shipped','delivered'];
+
+/* ---- АДМИН-ПАНЕЛЬ: конфигурация разделов ----
+   ВАЖНО (техническое ограничение прототипа): проект целиком — один статический HTML-файл
+   без сервера. Проверки доступа ниже выполняются в браузерном JS и НЕ являются настоящей
+   защитой — их можно обойти через devtools. Это осознанный выбор, согласованный с заказчиком:
+   сейчас это UI/UX-прототип админ-панели поверх локальных demo-данных, а не система с реальной
+   защитой. Настоящая серверная авторизация по Telegram ID, проверка прав и неподделываемый
+   журнал действий должны быть реализованы на бэкенде, когда он появится. */
+const ADMIN_SECTIONS = [
+  {key:'orders', label:'Заказы'},
+  {key:'customers', label:'Клиенты'},
+  {key:'support', label:'Поддержка'},
+  {key:'catalog', label:'Каталог'},
+  {key:'broadcasts', label:'Рассылки'},
+  {key:'promo', label:'Промокоды'},
+  {key:'delivery', label:'Доставка'},
+  {key:'analytics', label:'Аналитика'},
+  {key:'settings', label:'Настройки'},
+  {key:'admins', label:'Админы'},
+];
+const ADMIN_DEMO_PIN = '2606'; // демо-PIN, не является реальной защитой
+
+// ---- ТОЧКА ИНТЕГРАЦИИ С БАНКОМ / ККТ ----
+// Сейчас всё ниже — рабочая заглушка (эмуляция мгновенного успеха).
+// После подключения банка confirmPayment() будет вызываться не сразу в handleConfirmDelivery,
+// а из реального колбэка/вебхука об успешной оплате — сама функция и её эффекты менять не придётся.
+const INTEGRATIONS = {
+  sellerWebhookUrl: null,       // URL для уведомления продавца (Telegram-бот/CRM), пока не подключён
+  receiptProviderReady: false,  // онлайн-касса (54-ФЗ) ещё не подключена — чек не формируется
+};
+
+function notifySeller(order){
+  // Реальная реализация: fetch(INTEGRATIONS.sellerWebhookUrl, {method:'POST', body: JSON.stringify(order)})
+  if (!INTEGRATIONS.sellerWebhookUrl){
+    console.log('[notifySeller] заглушка: продавец уведомлён о заказе №'+order.id);
+    return true;
+  }
+  return true;
+}
+
+function sendBuyerPaymentConfirmation(order){
+  // Реальная реализация: отправка сообщения через Telegram Bot API покупателю (order.telegramUserId)
+  console.log('[sendBuyerPaymentConfirmation] покупателю отправлено подтверждение оплаты по заказу №'+order.id);
+  return true;
+}
+
+function maybeSendReceipt(order){
+  // Чек формируется только если подключена онлайн-касса (54-ФЗ). Пока — нет.
+  if (!INTEGRATIONS.receiptProviderReady) return false;
+  console.log('[maybeSendReceipt] чек по заказу №'+order.id+' отправлен на '+order.email);
+  return true;
+}
+
+// Единая точка обработки успешной оплаты — вызывается один раз на заказ.
+function confirmPayment(orderId, paymentPayload){
+  const order = state.orders.find(function(o){ return o.id===orderId; });
+  if (!order) return false;
+  if (order.status==='paid' || order.status==='processing' || order.status==='delivered') return true; // защита от повторного вызова (идемпотентность вебхука)
+
+  order.status = 'paid';
+  order.paidAt = formatToday();
+  order.payment = {
+    provider: (paymentPayload && paymentPayload.provider) || 'mock',
+    transactionId: (paymentPayload && paymentPayload.transactionId) || ('MOCK-'+order.id),
+  };
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({status:'paid', ts:formatToday(), by:'система (оплата)'});
+  saveState(); // сохранить заказ
+
+  order.sellerNotified = notifySeller(order);
+  order.buyerConfirmationSent = sendBuyerPaymentConfirmation(order);
+  order.receiptSent = maybeSendReceipt(order);
+  saveState();
+  return true;
+}
+
+const LEGAL_DOCS = {
+  privacy: { title:'Политика обработки персональных данных', text:'Здесь будет размещён полный текст политики обработки персональных данных питомника «Живое Наследие». Актуальная версия документа появится при подключении юридических материалов магазина.' },
+  offer: { title:'Публичная оферта', text:'Здесь будет размещён полный текст публичной оферты на продажу посадочного материала. Актуальная версия документа появится при подключении юридических материалов магазина.' },
+  consent: { title:'Согласие на обработку персональных данных', text:'Здесь будет размещён полный текст согласия на обработку персональных данных. Актуальная версия документа появится при подключении юридических материалов магазина.' },
+};
+
+const DESCRIPTIONS = {
+  seedling: 'Крепкий сеянец с закрытой корневой системой, выращен из семян в питомнике. Хорошо приживается при пересадке и адаптирован к климату средней полосы России.',
+  sapling: 'Саженец с закрытой корневой системой в контейнере Р9. Готов к посадке в грунт, переносит пересадку в любое время сезона без потерь.',
+};
+
+const NAV_HEIGHT = 70;
+
+/* ============================== IMAGES ============================== */
+
+const IMAGES = {};
+function img(name){ return IMAGES[name] || name; }
+
+/* ============================== ICONS ============================== */
+
+const ICONS = {
+  home: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11 L12 4 L21 11 V21 H14 V14 H10 V21 H3 Z"/></svg>',
+  catalog: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  cart: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6 H6 L8.5 17 H18 L20 8 H7"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>',
+  profile: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M5 20 C5 15.5 8 13.5 12 13.5 C16 13.5 19 15.5 19 20"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="1.8"><path d="M15 5 L8 12 L15 19"/></svg>',
+  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9A398" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"/><path d="M20 20 L16 16"/></svg>',
+  check: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#5A8D5F" stroke-width="3"><path d="M4 12 L10 18 L20 6"/></svg>',
+  checkBig: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 L10 18 L20 6"/></svg>',
+  gift: '<svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="#D6B98C" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" style="flex-shrink:0;opacity:0.95;"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg>',
+  truck: '<svg width="36.5" height="36.5" viewBox="0 0 24 24" fill="none" stroke="#B9D6B4" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" style="flex-shrink:0;"><path d="M2 7 H14 V16 H2 Z"/><path d="M14 10 H18 L21 13 V16 H14 Z"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17" cy="18.5" r="1.8"/></svg>',
+  box: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="1.7"><path d="M3 8 L12 4 L21 8 V17 L12 21 L3 17 Z"/><path d="M3 8 L12 12 L21 8 M12 12 V21"/></svg>',
+  leaf: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5A8D5F" stroke-width="1.7" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><path d="M4 20 C4 12 9 6 20 5 C19 15 13 20 4 20 Z"/><path d="M4 20 C8 16 12 12 18 8"/></svg>',
+  arrowRight: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12 H19 M13 6 L19 12 L13 18"/></svg>',
+  chevronRight: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B7B0A2" stroke-width="1.8"><path d="M9 5 L16 12 L9 19"/></svg>',
+  tree: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B9D6B4" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 L6 10 H9 L4 17 H11 V22 H13 V17 H20 L15 10 H18 Z"/></svg>',
+  heartOutline: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A968E" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20 C7 15.5 3 12.2 3 8.3 C3 5.6 5.1 3.5 7.7 3.5 C9.4 3.5 11 4.4 12 5.8 C13 4.4 14.6 3.5 16.3 3.5 C18.9 3.5 21 5.6 21 8.3 C21 12.2 17 15.5 12 20 Z"/></svg>',
+  heartFilled: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#C97A5A" stroke="#C97A5A" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20 C7 15.5 3 12.2 3 8.3 C3 5.6 5.1 3.5 7.7 3.5 C9.4 3.5 11 4.4 12 5.8 C13 4.4 14.6 3.5 16.3 3.5 C18.9 3.5 21 5.6 21 8.3 C21 12.2 17 15.5 12 20 Z"/></svg>',
+  bell: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 9 C6 5.7 8.7 3 12 3 C15.3 3 18 5.7 18 9 C18 14 20 15 20 16 H4 C4 15 6 14 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/></svg>',
+};
+
+/* ============================== STATE ============================== */
+
+const STORAGE_KEY = 'zn_state_v1';
+
+function defaultState(){
+  return {
+    cart: [],
+    profile: { name:'Анна Соколова', phone:'+7 900 123-45-67' },
+    checkoutForm: { name:'', phone:'+7', email:'', city:'', address:'', comment:'', delivery:'cdek', legalConsent:false, marketingConsent:false },
+    openDoc: null,
+    orders: [
+      { id:3198, dateLabel:'28 августа', createdAt:'2026-08-28T10:00:00.000Z', status:'delivered',
+        items:[{productId:'seed-kolyuchaya', bulk:false}],
+        total: 900, delivery:{id:'cdek', dateRange:'—'},
+        customer:{name:'Пётр Иванов', phone:'+7 900 111 22 33', email:'petr@example.com', city:'Пермь', address:'ул. Мира, 10', marketingConsent:true},
+        statusHistory:[{status:'delivered', ts:'28 августа', by:'система'}] },
+      { id:3255, dateLabel:'9 сентября', createdAt:'2026-09-09T10:00:00.000Z', status:'paid',
+        items:[{productId:'seed-kolyuchaya', bulk:false},{productId:'seed-kolyuchaya', bulk:false},{productId:'sapling-sosna-mugus', bulk:false},{productId:'sapling-sosna-mugus', bulk:false}],
+        total: 2*900 + 2*800, delivery:{id:'cdek', dateRange:'—'},
+        sellerNotified:true, buyerConfirmationSent:true, receiptSent:false,
+        customer:{name:'Анна Соколова', phone:'+7 900 123 45 67', email:'anna@example.com', city:'Пермь', address:'ул. Ленина, 1', marketingConsent:false},
+        statusHistory:[{status:'paid', ts:'9 сентября', by:'система'}] },
+    ],
+    nextOrderId: 3256,
+    catalogQuery: '',
+    catalogSort: 'popular',
+    sortMenuOpen: false,
+    boxWidgetCollapsed: false,
+    expandedBoxes: {},
+    bulkSpecies: {},
+    nextEntryUid: 1,
+
+    /* ---- АДМИН-ПАНЕЛЬ (демо-данные, без сервера — см. комментарий у ADMIN_SECTIONS) ---- */
+    favorites: [],
+    notifications: [],
+    supportThreads: [],
+    supportDraft: { text:'', orderId:'' },
+    savedAddresses: [],
+    theme: 'light',
+
+    admin: { loggedIn:false, currentAdminId:null },
+    adminSection: 'orders',
+    adminOrderQuery: '',
+    adminOrderStatusFilter: 'all',
+    adminCustomerQuery: '',
+    adminDraft: null,
+    adminDraftType: null,
+    adminDraftError: null,
+    adminDeleteConfirm: null,
+    broadcastDraft: {text:'', audience:'consented'},
+    adminBroadcastConfirm: false,
+    adminAnalyticsPeriod: 'all',
+    adminAnalyticsFrom: '',
+    adminAnalyticsTo: '',
+    admins: [
+      { id:'ad1', name:'Иван Петров (владелец)', telegramId:'100000001', role:'superadmin', permissions: ADMIN_SECTIONS.map(function(s){return s.key;}), active:true },
+      { id:'ad2', name:'Ольга Смирнова (менеджер)', telegramId:'100000002', role:'manager', permissions:['orders','customers','support'], active:true },
+    ],
+    adminAuditLog: [],
+    blockedCustomers: [],
+    promoCodes: [
+      { code:'ЖИВОЕ10', type:'percent', value:10, expiry:'', usageLimit:null, usedCount:0, active:true },
+      { code:'SAD10', type:'percent', value:10, expiry:'', usageLimit:null, usedCount:0, active:true },
+    ],
+    deliveryOptions: DELIVERY_OPTIONS.map(function(d){ return Object.assign({}, d); }),
+    deliveryZones: ['Пермь','Москва','Санкт-Петербург','Екатеринбург'],
+    products: ALL_PRODUCTS.map(function(p,i){ return Object.assign({}, p, {basePrice:p.price, discountPercent:0, available:true, order:i, customDescription:''}); }),
+    broadcasts: [],
+    settings: {
+      companyName:'Живое Наследие',
+      companyPhone:'+7 900 000-00-00',
+      companyEmail:'info@zhivoe-nasledie.ru',
+      inn:'',
+      privacyText: LEGAL_DOCS.privacy.text,
+      offerText: LEGAL_DOCS.offer.text,
+      consentText: LEGAL_DOCS.consent.text,
+    },
+  };
+}
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return Object.assign(defaultState(), parsed);
+  }catch(e){ return defaultState(); }
+}
+
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+/* ============================== LOGIC (pure) ============================== */
+
+function getProduct(id){ return (state.products||ALL_PRODUCTS).find(p=>p.id===id); }
+
+function cartTotalSlots(cart){ return cart.reduce((s,e)=>s+(e.bulk?2:1),0); }
+
+function cartTotalPrice(cart){
+  return cart.reduce((s,e)=>{
+    const p = getProduct(e.productId);
+    return s + (p ? p.price : 0);
+  },0);
+}
+
+function cartTotalPieces(cart){
+  return cart.reduce((s,e)=>{
+    const p = getProduct(e.productId);
+    return s + (p ? p.pieces : 0);
+  },0);
+}
+
+function slotsNeededToComplete(slots){
+  if (slots===0) return 2;
+  if (slots%2===0) return 0;
+  return 1;
+}
+
+function canCheckout(cart){
+  const s = cartTotalSlots(cart);
+  return s>0 && s%2===0;
+}
+
+// Groups flat cart entries into boxes of 2 positions each.
+// A bulk entry (a "большая коробка") always occupies a whole box by itself.
+function computeBoxes(cart){
+  const boxes = [];
+  let current = [];
+  cart.forEach(function(entry){
+    if (entry.bulk){
+      if (current.length){ boxes.push(current); current = []; }
+      boxes.push([entry]);
+    } else {
+      current.push(entry);
+      if (current.length===2){ boxes.push(current); current = []; }
+    }
+  });
+  if (current.length) boxes.push(current);
+  return boxes;
+}
+
+function boxIsComplete(box){ return box.length===2 || (box.length===1 && box[0].bulk); }
+
+function groupEntries(entries){
+  const map = new Map();
+  entries.forEach(function(e){
+    const key = e.productId + '|' + (e.species||'');
+    if (!map.has(key)) map.set(key, Object.assign({}, e, {count:0}));
+    map.get(key).count++;
+  });
+  return Array.from(map.values());
+}
+
+function addEntry(productId, opts){
+  state.cart.push(Object.assign({productId:productId, bulk:false, uid:state.nextEntryUid++}, opts||{}));
+}
+
+function removeLastEntryForProduct(productId){
+  for (let i=state.cart.length-1;i>=0;i--){
+    if (state.cart[i].productId===productId){ state.cart.splice(i,1); return; }
+  }
+}
+
+function changeUnits(productId, delta){
+  if (delta>0) addEntry(productId);
+  else removeLastEntryForProduct(productId);
+  saveState();
+}
+
+function addUnitsBulk(productId, units){
+  for (let i=0;i<units;i++) addEntry(productId);
+  saveState();
+}
+
+function applyPromoCode(code, subtotal){
+  const key = (code||'').trim().toUpperCase();
+  const list = (state.promoCodes||[]);
+  const promo = list.find(function(p){ return p.code.toUpperCase()===key; });
+  if (!promo || promo.active===false) return { valid:false, code:key, rate:0, discount:0 };
+  if (promo.expiry && new Date(promo.expiry) < new Date()) return { valid:false, code:key, rate:0, discount:0 };
+  if (promo.usageLimit!=null && promo.usedCount>=promo.usageLimit) return { valid:false, code:key, rate:0, discount:0 };
+  const discount = promo.type==='fixed' ? Math.min(promo.value, subtotal) : Math.round(subtotal*promo.value/100);
+  return { valid:true, code:key, rate:promo.type==='percent'?promo.value/100:null, discount:discount };
+}
+
+function filterProducts(products, opts){
+  opts = opts || {};
+  return products.filter(function(p){
+    const cat = p.filterGroup || p.category;
+    if (opts.category && opts.category!=='all' && cat!==opts.category) return false;
+    if (opts.query){
+      const q = opts.query.toLowerCase();
+      if (p.name.toLowerCase().indexOf(q)===-1 && !(p.latin && p.latin.toLowerCase().indexOf(q)!==-1)) return false;
+    }
+    return true;
+  });
+}
+
+function sortProducts(products, sortKey){
+  const arr = products.slice();
+  if (sortKey==='price_asc') arr.sort((a,b)=>a.price-b.price);
+  else if (sortKey==='price_desc') arr.sort((a,b)=>b.price-a.price);
+  return arr;
+}
+
+function formatPrice(n){ return n.toLocaleString('ru-RU') + ' ₽'; }
+
+const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+function formatDateRange(minDays, maxDays, from){
+  from = from || new Date();
+  const d1 = new Date(from); d1.setDate(d1.getDate()+minDays);
+  const d2 = new Date(from); d2.setDate(d2.getDate()+maxDays);
+  if (d1.getMonth()===d2.getMonth()) return d1.getDate()+'–'+d2.getDate()+' '+MONTHS_RU[d1.getMonth()];
+  return d1.getDate()+' '+MONTHS_RU[d1.getMonth()]+' – '+d2.getDate()+' '+MONTHS_RU[d2.getMonth()];
+}
+
+function formatToday(){
+  const d = new Date();
+  return d.getDate()+' '+MONTHS_RU[d.getMonth()];
+}
+
+// Russian phone mask: always starts with 7, max 11 digits total, grouped as +7 XXX XXX XX XX
+function formatPhoneDigits(digits){
+  let out = '+7';
+  const rest = digits.slice(1);
+  if (rest.length>0) out += ' ' + rest.slice(0,3);
+  if (rest.length>3) out += ' ' + rest.slice(3,6);
+  if (rest.length>6) out += ' ' + rest.slice(6,8);
+  if (rest.length>8) out += ' ' + rest.slice(8,10);
+  return out;
+}
+
+function sanitizePhoneInput(raw){
+  let digits = (raw||'').replace(/\D/g,'');
+  if (digits.length===0) digits = '7';
+  else if (digits[0]==='8') digits = '7'+digits.slice(1);
+  else if (digits[0]!=='7') digits = '7'+digits;
+  digits = digits.slice(0,11);
+  return formatPhoneDigits(digits);
+}
+
+function isValidEmail(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email||'').trim());
+}
+
+function validateContact(form){
+  const errors = {};
+  if (!form.name || form.name.trim().length<2) errors.name = 'Введите имя и фамилию';
+  const digits = (form.phone||'').replace(/\D/g,'');
+  if (digits.length<11) errors.phone = 'Введите номер телефона полностью';
+  if (!isValidEmail(form.email)) errors.email = 'Введите корректный email — на него придёт чек';
+  if (!form.city || form.city.trim().length<2) errors.city = 'Укажите город';
+  if (!form.address || form.address.trim().length<3) errors.address = 'Укажите адрес или пункт выдачи СДЭК';
+  if (!form.legalConsent) errors.legalConsent = 'Необходимо согласие на обработку персональных данных';
+  return errors;
+}
+
+function cartToOrderItems(cart){ return cart.map(function(e){ return {productId:e.productId, bulk:!!e.bulk, species:e.species}; }); }
+
+/* ============================== ROUTER ============================== */
+
+function parseRoute(){
+  const hash = (location.hash||'').replace(/^#\/?/, '');
+  const parts = hash.split('/').filter(Boolean);
+  return { name: parts[0] || 'home', param: parts[1], param2: parts[2] };
+}
+
+function go(route){ location.hash = route; }
+
+let currentActiveNav = 'home';
+
+function render(preserveScroll){
+  const {name, param, param2} = parseRoute();
+  let html = '';
+  currentActiveNav = '';
+  switch(name){
+    case 'home': html = screenHome(); currentActiveNav='home'; break;
+    case 'catalog': html = screenCatalog(param); currentActiveNav='catalog'; break;
+    case 'product': html = screenProduct(param); break;
+    case 'cart': html = screenCart(); currentActiveNav='cart'; break;
+    case 'checkout': html = screenCheckout(); break;
+    case 'delivery': html = screenDelivery(); break;
+    case 'profile': html = screenProfile(); currentActiveNav='profile'; break;
+    case 'orders': html = param ? screenOrderDetail(param) : screenOrders(); currentActiveNav='profile'; break;
+    case 'success': html = screenSuccess(param); break;
+    case 'favorites': html = screenFavorites(); currentActiveNav='profile'; break;
+    case 'notifications': html = screenNotifications(); currentActiveNav='profile'; break;
+    case 'support': html = screenSupport(); currentActiveNav='profile'; break;
+    case 'addresses': html = screenAddresses(); currentActiveNav='profile'; break;
+    case 'app-settings': html = screenAppSettings(); currentActiveNav='profile'; break;
+    case 'admin': html = screenAdmin(param, param2); currentActiveNav=''; break;
+    default: html = screenHome(); currentActiveNav='home';
+  }
+  const shellEl = document.getElementById('shell');
+  if (shellEl) shellEl.style.maxWidth = (name==='admin') ? '1040px' : '480px';
+  applyTheme();
+  const scrollPos = window.scrollY;
+  document.getElementById('app').innerHTML = html;
+  if (preserveScroll) window.scrollTo(0, scrollPos);
+  else window.scrollTo(0,0);
+  tgUpdateBackButton(name);
+}
+
+window.addEventListener('hashchange', render);
+
+/* ============================== SHARED PARTIALS ============================== */
+
+function checkboxHTML(checked, dataAttr){
+  return '<div data-'+dataAttr+' style="width:20px;height:20px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;'
+    + (checked ? 'background:#9DC698;border:1.5px solid #9DC698;' : 'background:#fff;border:1.5px solid #C9C2B0;')
+    + '">'+(checked ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="3.2"><path d="M4 12 L10 18 L20 6"/></svg>' : '')+'</div>';
+}
+
+function docModalHTML(){
+  if (!state.openDoc) return '';
+  const doc = LEGAL_DOCS[state.openDoc];
+  if (!doc) return '';
+  const overrideMap = { privacy:'privacyText', offer:'offerText', consent:'consentText' };
+  const overrideKey = overrideMap[state.openDoc];
+  const text = (overrideKey && state.settings && state.settings[overrideKey]) || doc.text;
+  return '<div data-close-doc style="position:fixed;inset:0;background:rgba(24,42,32,0.55);z-index:100;display:flex;align-items:flex-end;">'
+    + '<div style="background:#fff;width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:22px 20px 28px;max-height:70vh;overflow-y:auto;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;">'
+    + '<div class="serif" style="font-size:18px;color:#21362A;font-weight:600;">'+doc.title+'</div>'
+    + '<div data-close-doc style="width:28px;height:28px;border-radius:50%;background:#F3EEE3;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">'
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="2"><path d="M6 6 L18 18 M18 6 L6 18"/></svg></div>'
+    + '</div>'
+    + '<p style="font-size:13.5px;line-height:1.65;color:#4A564E;margin:0;">'+text+'</p>'
+    + '</div></div>';
+}
+
+function unreadNotificationCount(){ return (state.notifications||[]).filter(function(n){ return !n.read; }).length; }
+
+function partialNav(active){
+  const cartCount = cartTotalSlots(state.cart);
+  const unreadCount = unreadNotificationCount();
+  const items = [
+    {key:'home', label:'Главная', icon:ICONS.home, route:'#/home'},
+    {key:'catalog', label:'Каталог', icon:ICONS.catalog, route:'#/catalog'},
+    {key:'cart', label:'Корзина', icon:ICONS.cart, route:'#/cart'},
+    {key:'profile', label:'Профиль', icon:ICONS.profile, route:'#/profile'},
+  ];
+  return '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;height:'+NAV_HEIGHT+'px;box-sizing:border-box;background:#fff;border-top:1px solid #ECE7DA;display:flex;align-items:center;justify-content:space-around;padding:8px 8px 14px;z-index:50;">'
+    + items.map(function(it){
+        const isActive = active===it.key;
+        let badge = '';
+        if (it.key==='cart' && cartCount>0) badge = '<div style="position:absolute;top:-3px;right:6px;width:14px;height:14px;background:#C97A5A;border-radius:50%;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;">'+cartCount+'</div>';
+        else if (it.key==='profile' && unreadCount>0) badge = '<div style="position:absolute;top:-3px;right:6px;width:14px;height:14px;background:#C97A5A;border-radius:50%;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;">'+unreadCount+'</div>';
+        return '<div class="navitem" data-nav="'+it.route+'" style="color:'+(isActive?'#21362A':'#A9A398')+';cursor:pointer;position:relative;">'+it.icon+badge+'<span>'+it.label+'</span></div>';
+      }).join('')
+    + '</div>';
+}
+
+function partialHeader(title, backRoute){
+  return '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">'
+    + '<div data-nav="'+backRoute+'" style="cursor:pointer;">'+ICONS.back+'</div>'
+    + '<div class="serif" style="font-size:22px;color:#21362A;font-weight:600;">'+title+'</div>'
+    + '</div>';
+}
+
+function productCardHTML(p){
+  const count = state.cart.filter(function(e){ return e.productId===p.id; }).length;
+  const pieces = count*p.pieces;
+  const bodyBottom = count>0
+    ? ('<div style="display:flex;align-items:center;gap:4px;color:#5A8D5F;font-size:9.5px;font-weight:700;margin-bottom:6px;">'+ICONS.check+'Уже в коробке</div>'
+       + '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #9DC698;border-radius:9px;overflow:hidden;background:#EEF4EC;">'
+       + '<div class="stepbtn" data-sub-unit="'+p.id+'">−</div>'
+       + '<div style="font-size:11px;font-weight:700;color:#21362A;">'+pieces+' шт</div>'
+       + '<div class="stepbtn" data-add-unit="'+p.id+'">+</div>'
+       + '</div>')
+    : ('<div class="addbtn" data-add-unit="'+p.id+'" style="cursor:pointer;">Добавить '+p.pieces+' шт</div>');
+
+  const isFav = (state.favorites||[]).indexOf(p.id)!==-1;
+  return '<div class="pcard">'
+    + '<div style="height:118px;position:relative;overflow:hidden;cursor:pointer;" data-nav="#/product/'+p.id+'">'
+    + '<img src="'+img(p.img)+'" style="width:100%;height:100%;object-fit:cover;object-position:50% '+(p.category==='seedling'?'30%':'20%')+';">'
+    + '<div data-toggle-favorite="'+p.id+'" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+(isFav?ICONS.heartFilled:ICONS.heartOutline)+'</div>'
+    + '</div>'
+    + '<div style="padding:10px 12px 12px;">'
+    + '<div style="font-weight:700;font-size:12.5px;cursor:pointer;" data-nav="#/product/'+p.id+'">'+p.name+'</div>'
+    + '<div style="font-size:10px;font-style:italic;color:#8A968E;margin:2px 0 6px;">'+p.latin+'</div>'
+    + '<div style="font-size:9.5px;color:#8A968E;margin-bottom:6px;">'+(p.category==='seedling'?'Сеянец':'Саженец Р9')+' · '+p.height+'</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:'+(count>0?'7':'8')+'px;"><div style="font-weight:800;font-size:13.5px;">'+formatPrice(p.price)+'</div></div>'
+    + bodyBottom
+    + '</div></div>';
+}
+
+function bulkCardHTML(b){
+  const isFav = (state.favorites||[]).indexOf(b.id)!==-1;
+  return '<div class="pcard" style="position:relative;">'
+    + '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#D6B98C;color:#21362A;font-size:8px;font-weight:800;padding:3px 7px;border-radius:999px;">ВЫГОДНО</div>'
+    + '<div data-toggle-favorite="'+b.id+'" style="position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+(isFav?ICONS.heartFilled:ICONS.heartOutline)+'</div>'
+    + '<div style="height:118px;position:relative;overflow:hidden;cursor:pointer;" data-nav="#/product/'+b.id+'"><img src="'+img(b.img)+'" style="width:100%;height:100%;object-fit:cover;object-position:50% 25%;"></div>'
+    + '<div style="padding:10px 12px 12px;">'
+    + '<div style="font-weight:700;font-size:12.5px;cursor:pointer;" data-nav="#/product/'+b.id+'">'+b.name+'</div>'
+    + '<div style="font-size:9.5px;color:#8A968E;margin:4px 0 6px;">'+b.unitLabel+'</div>'
+    + '<div style="font-weight:800;font-size:13.5px;margin-bottom:8px;">'+formatPrice(b.price)+'</div>'
+    + '<div class="addbtn" data-nav="#/product/'+b.id+'" style="cursor:pointer;">Выбрать вид</div>'
+    + '</div></div>';
+}
+
+function catalogCardHTML(p){ return p.bulk ? bulkCardHTML(p) : productCardHTML(p); }
+
+function isBoxExpanded(idx, isLast){
+  if (Object.prototype.hasOwnProperty.call(state.expandedBoxes||{}, idx)) return state.expandedBoxes[idx];
+  return isLast;
+}
+
+function boxEntryLabel(entry){
+  const p = getProduct(entry.productId);
+  if (entry.bulk){
+    const sp = getProduct(entry.species);
+    return p.name + (sp ? ' · ' + sp.name : '') + ' · ' + p.pieces + ' шт';
+  }
+  return p.name + ' · ' + p.pieces + ' шт';
+}
+
+function boxWidgetHTML(activeCategory){
+  const boxes = computeBoxes(state.cart);
+  const ok = canCheckout(state.cart);
+  const collapsedAll = !!state.boxWidgetCollapsed;
+  const completeCount = boxes.filter(boxIsComplete).length;
+  const lastBox = boxes[boxes.length-1];
+  const inProgress = lastBox && !boxIsComplete(lastBox);
+
+  const summaryText = boxes.length===0
+    ? 'пока пусто'
+    : (inProgress ? completeCount+' собрано, коробка '+boxes.length+' в процессе' : completeCount+' из '+completeCount+' собрано');
+
+  const header = '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;" data-box-toggle>'
+    + ICONS.box
+    + '<div style="font-weight:700;font-size:13.5px;color:#21362A;flex:1;">Ваши коробки · '+summaryText+'</div>'
+    + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="2" style="transform:rotate('+(collapsedAll?'180deg':'0deg')+');"><path d="M6 9 L12 15 L18 9"/></svg>'
+    + '</div>';
+
+  if (collapsedAll){
+    return '<div style="position:fixed;bottom:'+NAV_HEIGHT+'px;left:0;right:0;max-width:480px;margin:0 auto;background:#FFFFFF;border-top:1px solid #E4DFD2;padding:12px 20px;box-shadow:0 -8px 20px rgba(24,42,32,0.06);z-index:49;">'
+      + header + '</div>';
+  }
+
+  const seedActive = activeCategory!=='sapling';
+  const sapActive = activeCategory==='sapling';
+
+  const boxesHtml = boxes.length ? boxes.map(function(box, idx){
+    const complete = boxIsComplete(box);
+    const isLast = idx===boxes.length-1;
+    const expanded = isBoxExpanded(idx, isLast);
+    const boxSlots = box.reduce(function(s,e){ return s+(e.bulk?2:1); },0);
+    const rows = box.map(function(entry){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;">'
+        + '<div style="font-size:11.5px;color:#3F5E44;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+boxEntryLabel(entry)+'</div>'
+        + '<div data-remove-entry="'+entry.uid+'" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#C97A5A;font-size:15px;line-height:1;flex-shrink:0;">×</div>'
+        + '</div>';
+    }).join('');
+    return '<div style="border:1px solid #ECE7DA;border-radius:12px;margin-bottom:8px;overflow:hidden;">'
+      + '<div data-box-item-toggle="'+idx+'" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:'+(complete?'#EEF4EC':'#fff')+';">'
+      + '<span style="font-size:12px;font-weight:700;color:#21362A;">Коробка '+(idx+1)+' · '+boxSlots+' из 2 мест'+(complete?' · собрана':'')+'</span>'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="2.2" style="transform:rotate('+(expanded?'180deg':'0deg')+');flex-shrink:0;"><path d="M6 9 L12 15 L18 9"/></svg>'
+      + '</div>'
+      + (expanded ? ('<div style="padding:2px 12px 8px;">'+rows+'</div>') : '')
+      + '</div>';
+  }).join('') : '<div style="font-size:11.5px;color:#A9A398;padding:6px 0;">Пока пусто — выберите сеянцы или саженцы Р9</div>';
+
+  const statusLine = boxes.length===0
+    ? 'Минимум 2 места, чтобы собрать первую коробку'
+    : (inProgress ? 'Добавьте ещё 1 место в коробку '+boxes.length+' (4 сеянца или 1 саженец Р9)' : (ICONS.check+' Все коробки собраны — можно оформить заказ'));
+
+  return '<div style="position:fixed;bottom:'+NAV_HEIGHT+'px;left:0;right:0;max-width:480px;margin:0 auto;background:#FFFFFF;border-top:1px solid #E4DFD2;padding:14px 20px 12px;box-shadow:0 -8px 20px rgba(24,42,32,0.06);z-index:49;max-height:65vh;overflow-y:auto;">'
+    + header
+    + '<div style="margin:10px 0 4px;">'+boxesHtml+'</div>'
+    + '<div style="font-size:11px;color:#6E7B72;margin:6px 0 10px;display:flex;align-items:center;gap:4px;">'+statusLine+'</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button data-nav="#/catalog/seedling" style="flex:1;padding:11px;border-radius:11px;font-size:12.5px;font-weight:700;'+(seedActive?'background:#21362A;color:#F3EEE3;border:none;':'background:#fff;color:#21362A;border:1.5px solid #21362A;')+'">Выбрать сеянцы</button>'
+    + '<button data-nav="#/catalog/sapling" style="flex:1;padding:11px;border-radius:11px;font-size:12.5px;font-weight:700;'+(sapActive?'background:#21362A;color:#F3EEE3;border:none;':'background:#fff;color:#21362A;border:1.5px solid #21362A;')+'">Выбрать саженцы Р9</button>'
+    + '</div>'
+    + (ok ? '<button data-nav="#/cart" style="width:100%;margin-top:10px;background:#9DC698;color:#21362A;border:none;padding:12px;border-radius:11px;font-size:13px;font-weight:800;">К оформлению · '+formatPrice(cartTotalPrice(state.cart))+'</button>' : '')
+    + '</div>';
+}
+
+/* ============================== SCREENS ============================== */
+
+function screenHome(){
+  return ''
+  + '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="height:400px;position:relative;overflow:hidden;padding:18px 22px 0;">'
+  + '<img src="'+img('vetki.jpg')+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:right top;">'
+  + '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(100deg, rgba(24,42,32,0.95) 0%, rgba(24,42,32,0.85) 42%, rgba(24,42,32,0.4) 75%, rgba(24,42,32,0.08) 100%);"></div>'
+  + '<div style="position:relative;">'
+  + '<div style="display:flex;align-items:center;gap:10px;">'
+  + '<div style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(243,238,227,0.35);display:flex;align-items:center;justify-content:center;">'+ICONS.tree+'</div>'
+  + '<div><div style="font-size:13px;letter-spacing:1.5px;color:#F3EEE3;font-weight:700;">ЖИВОЕ НАСЛЕДИЕ</div><div style="font-size:9px;letter-spacing:1.5px;color:#8FA895;">ПИТОМНИК РАСТЕНИЙ</div></div>'
+  + '</div>'
+  + '<h1 class="serif" style="font-size:41.5px;line-height:1.1;color:#FAF7F0;margin:16px 0 12px;font-weight:600;">От семечка —<br>до вашего сада</h1>'
+  + '<p style="font-size:16px;color:#C9D3C5;line-height:1.45;margin:0 0 16px;max-width:305px;">Питомник хвойных в Пермском крае. Выращиваем сеянцы и саженцы, адаптированные к климату России.</p>'
+  + '<div data-nav="#/catalog" style="display:flex;align-items:center;gap:6px;background:#9DC698;color:#21362A;border:none;padding:13px 22px;border-radius:14px;font-size:14px;font-weight:700;width:fit-content;cursor:pointer;"><span>Смотреть каталог</span>'+ICONS.arrowRight+'</div>'
+  + '<div style="display:flex;align-items:center;gap:14px;margin-top:10px;">'+ICONS.truck
+  + '<div><div style="font-size:17px;color:#F3EEE3;font-weight:700;">Бесплатная доставка по России</div><div style="font-size:14.5px;color:#8FA895;margin-top:2px;">СДЭК или Почтой России</div></div>'
+  + '</div></div></div>'
+  + '<div style="background:#FAF7F0;border-radius:26px 26px 0 0;margin-top:-20px;position:relative;padding:16px 20px 0;">'
+  + '<div style="border-radius:20px;overflow:hidden;position:relative;margin-bottom:16px;background:linear-gradient(135deg,#2C4737 0%,#182A20 100%);padding:26px 20px;display:flex;align-items:center;gap:16px;">'
+  + '<div style="flex:1;"><div style="font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#D6B98C;text-transform:uppercase;margin-bottom:8px;">Подарок к заказу</div>'
+  + '<div class="serif" style="color:#FAF7F0;font-size:20px;line-height:1.28;margin-bottom:7px;">Сеянец в подарок к каждому заказу</div>'
+  + '<div style="color:#9FB09A;font-size:12.5px;line-height:1.5;">Добавим сеянец к вашему заказу бесплатно</div></div>'
+  + '<svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#D6B98C" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" style="flex-shrink:0;opacity:0.95;"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg></div>'
+  + '<div data-nav="#/catalog" style="border-radius:20px;overflow:hidden;position:relative;margin-bottom:22px;height:158px;cursor:pointer;">'
+  + '<img src="'+img('teplitsa.jpg')+'" style="display:block;width:100%;height:100%;object-fit:cover;object-position:50% 60%;">'
+  + '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg, rgba(15,27,20,0.94) 0%, rgba(15,27,20,0.6) 65%, rgba(15,27,20,0) 100%);padding:32px 16px 14px;">'
+  + '<div class="serif" style="color:#FAF7F0;font-size:16.5px;line-height:1.28;">Здесь начинается история вашего дерева</div></div></div>'
+  + '<div style="text-align:center;padding:0 10px 14px;">'
+  + '<div class="serif" style="color:#21362A;font-size:26px;line-height:1.28;font-weight:700;">Растим с заботой.<br>Передаём с любовью.</div>'
+  + '<div style="color:#8A968E;font-size:13px;margin-top:6px;">Для вашего сада и будущих поколений.</div>'
+  + '</div></div></div>'
+  + partialNav('home');
+}
+
+function screenCatalog(categoryParam){
+  const category = (categoryParam==='seedling'||categoryParam==='sapling') ? categoryParam : 'all';
+  const query = state.catalogQuery||'';
+  let list = filterProducts(state.products.filter(function(p){ return p.available!==false; }), {category:category, query:query});
+  list = sortProducts(list, state.catalogSort);
+
+  const sortLabels = {popular:'По популярности', price_asc:'Сначала дешевле', price_desc:'Сначала дороже'};
+
+  const chips = [
+    {key:'all', label:'Все', route:'#/catalog'},
+    {key:'seedling', label:'Сеянцы', route:'#/catalog/seedling'},
+    {key:'sapling', label:'Саженцы Р9', route:'#/catalog/sapling'},
+  ];
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:230px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + '<div class="serif" style="font-size:26px;color:#21362A;font-weight:600;">Каталог</div>'
+  + '<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #E4DFD2;border-radius:14px;padding:11px 14px;margin-top:16px;">'+ICONS.search
+  + '<input id="catalogSearch" placeholder="Найти растение" value="'+query.replace(/"/g,'&quot;')+'" style="border:none;outline:none;font-size:13px;color:#21362A;flex:1;background:transparent;">'
+  + '</div>'
+  + '<div style="display:flex;gap:8px;margin-top:16px;">'
+  + chips.map(c=>'<div class="chip'+(c.key===category?' active':'')+'" data-nav="'+c.route+'" style="cursor:pointer;">'+c.label+'</div>').join('')
+  + '</div>'
+  + '<div style="border-radius:16px;background:#EEF4EC;border:1px solid #D9E5D6;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;margin-top:16px;">'+ICONS.leaf
+  + '<div><div style="font-weight:700;font-size:13px;color:#21362A;margin-bottom:4px;">Соберите свою коробку</div>'
+  + '<div style="font-size:11.5px;color:#4A564E;line-height:1.55;">В коробке 2 места. 4 сеянца или 1 саженец Р9 — одно место. Виды можно сочетать.</div></div></div>'
+  + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:14px;position:relative;">'
+  + '<span style="font-size:12.5px;color:#8A968E;">'+list.length+' позиций</span>'
+  + '<div id="sortMenuWrap" style="position:relative;">'
+  + '<span id="sortToggle" style="font-size:12.5px;color:#21362A;font-weight:600;cursor:pointer;">'+sortLabels[state.catalogSort]+(state.sortMenuOpen?' ⌃':' ⌄')+'</span>'
+  + (state.sortMenuOpen ? ('<div style="position:absolute;top:24px;right:0;background:#fff;border:1px solid #E4DFD2;border-radius:12px;box-shadow:0 8px 20px rgba(24,42,32,0.12);overflow:hidden;z-index:20;min-width:160px;">'
+      + Object.keys(sortLabels).map(function(key){
+          return '<div data-sort-select="'+key+'" style="padding:11px 14px;font-size:12.5px;cursor:pointer;'+(key===state.catalogSort?'background:#EEF4EC;color:#21362A;font-weight:700;':'color:#4A564E;')+'">'+sortLabels[key]+'</div>';
+        }).join('')
+      + '</div>') : '')
+  + '</div>'
+  + '</div>'
+  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+  + (list.length ? list.map(catalogCardHTML).join('') : '<div style="grid-column:1/-1;text-align:center;color:#A9A398;font-size:13px;padding:30px 0;">Ничего не найдено</div>')
+  + '</div></div></div>'
+  + boxWidgetHTML(category)
+  + partialNav('catalog');
+}
+
+function screenProduct(id){
+  const p = getProduct(id);
+  if (!p) { go('#/catalog'); return ''; }
+  if (p.bulk) return screenBulkProduct(p);
+
+  if (!state.productQty) state.productQty = {};
+  const qty = state.productQty[id] || 1;
+  const total = p.price*qty;
+  const typeLabel = p.category==='seedling' ? 'Сеянец' : 'Саженец Р9';
+  const adultPhoto = ADULT_PHOTOS[p.speciesKey];
+  const isFav = (state.favorites||[]).indexOf(p.id)!==-1;
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:110px;">'
+  + '<div style="height:300px;position:relative;overflow:hidden;">'
+  + '<img src="'+img(p.img)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:50% '+(p.category==='seedling'?'25%':'15%')+';background:#FAF7F0;">'
+  + '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(rgba(24,42,32,0.02), rgba(24,42,32,0.15));"></div>'
+  + '<div data-nav="#/catalog" style="position:absolute;top:22px;left:20px;width:36px;height:36px;border-radius:50%;background:rgba(250,247,240,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+ICONS.back+'</div>'
+  + '<div data-toggle-favorite="'+p.id+'" style="position:absolute;top:22px;right:20px;width:36px;height:36px;border-radius:50%;background:rgba(250,247,240,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+(isFav?ICONS.heartFilled:ICONS.heartOutline)+'</div>'
+  + '</div>'
+  + '<div style="background:#FAF7F0;border-radius:26px 26px 0 0;margin-top:-20px;position:relative;padding:24px 20px 0;">'
+  + '<h1 class="serif" style="font-size:25px;margin:0 0 4px;color:#21362A;font-weight:600;">'+p.name+'</h1>'
+  + '<div style="font-size:13.5px;font-style:italic;color:#8A968E;margin-bottom:14px;">'+p.latin+'</div>'
+  + '<div style="display:flex;gap:8px;margin-bottom:22px;">'
+  + '<span style="background:#EDEAE0;color:#6B9971;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid #D9E5D6;">'+typeLabel+'</span>'
+  + '<span style="background:#EDEAE0;color:#6B9971;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid #D9E5D6;">'+p.unitLabel+'</span>'
+  + '</div>'
+  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;">'
+  + '<div style="background:#F3EEE3;border-radius:14px;padding:14px;"><div style="font-size:10.5px;color:#8A968E;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Высота</div><div style="font-size:14px;font-weight:700;color:#21362A;">'+p.height+'</div></div>'
+  + '<div style="background:#F3EEE3;border-radius:14px;padding:14px;"><div style="font-size:10.5px;color:#8A968E;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Комплектация</div><div style="font-size:14px;font-weight:700;color:#21362A;">'+p.unitLabel+'</div></div>'
+  + '</div>'
+  + '<div style="font-weight:700;font-size:15px;margin-bottom:8px;">Описание</div>'
+  + '<p style="font-size:13.5px;line-height:1.65;color:#4A564E;margin:0 0 '+(adultPhoto?'20':'24')+'px;">'+(p.customDescription || DESCRIPTIONS[p.category])+'</p>'
+  + (adultPhoto ? ('<div style="font-weight:700;font-size:15px;margin-bottom:10px;">Взрослое дерево</div>'
+      + '<div style="border-radius:16px;overflow:hidden;margin-bottom:24px;"><img src="'+img(adultPhoto)+'" style="width:100%;display:block;"></div>') : '')
+  + '</div></div>'
+  + '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid #ECE7DA;padding:14px 20px 22px;display:flex;align-items:center;gap:14px;z-index:50;">'
+  + '<div style="display:flex;align-items:center;border:1.5px solid #E4DFD2;border-radius:14px;overflow:hidden;">'
+  + '<div class="stepbtn" style="width:34px;height:38px;" data-product-qty-sub="'+p.id+'">−</div>'
+  + '<div style="width:30px;height:38px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;border-left:1px solid #E4DFD2;border-right:1px solid #E4DFD2;">'+qty+'</div>'
+  + '<div class="stepbtn" style="width:34px;height:38px;" data-product-qty-add="'+p.id+'">+</div>'
+  + '</div>'
+  + '<button data-product-add-to-box="'+p.id+'" class="primary-btn" style="flex:1;">В коробку · '+formatPrice(total)+'</button>'
+  + '</div>';
+}
+
+function screenBulkProduct(p){
+  if (!state.bulkSpecies) state.bulkSpecies = {};
+  const chosenId = state.bulkSpecies[p.id] || p.options[0];
+  const chosen = getProduct(chosenId);
+  const adultPhoto = ADULT_PHOTOS[chosen.speciesKey];
+  const typeLabel = chosen.category==='seedling' ? 'Сеянец' : 'Саженец Р9';
+  const isFav = (state.favorites||[]).indexOf(p.id)!==-1;
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:110px;">'
+  + '<div style="height:300px;position:relative;overflow:hidden;">'
+  + '<img src="'+img(chosen.img)+'" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:50% '+(chosen.category==='seedling'?'25%':'15%')+';background:#FAF7F0;">'
+  + '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(rgba(24,42,32,0.02), rgba(24,42,32,0.15));"></div>'
+  + '<div data-nav="#/catalog" style="position:absolute;top:22px;left:20px;width:36px;height:36px;border-radius:50%;background:rgba(250,247,240,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+ICONS.back+'</div>'
+  + '<div style="position:absolute;top:22px;right:20px;background:#D6B98C;color:#21362A;font-size:9.5px;font-weight:800;padding:5px 11px;border-radius:999px;">ВЫГОДНО</div>'
+  + '<div data-toggle-favorite="'+p.id+'" style="position:absolute;top:64px;right:20px;width:36px;height:36px;border-radius:50%;background:rgba(250,247,240,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+(isFav?ICONS.heartFilled:ICONS.heartOutline)+'</div>'
+  + '</div>'
+  + '<div style="background:#FAF7F0;border-radius:26px 26px 0 0;margin-top:-20px;position:relative;padding:24px 20px 0;">'
+  + '<h1 class="serif" style="font-size:25px;margin:0 0 4px;color:#21362A;font-weight:600;">'+p.name+'</h1>'
+  + '<div style="font-size:13.5px;color:#8A968E;margin-bottom:14px;">Выбрано: '+chosen.name+' · <span style="font-style:italic;">'+chosen.latin+'</span></div>'
+  + '<div style="display:flex;gap:8px;margin-bottom:22px;">'
+  + '<span style="background:#EDEAE0;color:#6B9971;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid #D9E5D6;">'+typeLabel+'</span>'
+  + '<span style="background:#EDEAE0;color:#6B9971;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid #D9E5D6;">'+p.unitLabel+'</span>'
+  + '</div>'
+  + '<div style="font-weight:700;font-size:15px;margin-bottom:10px;">Выберите вид</div>'
+  + p.options.map(function(optId){
+      const o = getProduct(optId);
+      const sel = optId===chosenId;
+      return '<div class="opt'+(sel?' sel':'')+'" data-bulk-species="'+p.id+'|'+optId+'">'
+        + '<div style="width:18px;height:18px;border-radius:50%;flex-shrink:0;'+(sel?'border:5px solid #9DC698;':'border:1.5px solid #C9C2B0;')+'"></div>'
+        + '<div style="flex:1;"><div style="font-weight:700;font-size:13.5px;">'+o.name+'</div><div style="font-size:11px;font-style:italic;color:#8A968E;">'+o.latin+'</div></div>'
+        + '</div>';
+    }).join('')
+  + '<div style="font-weight:700;font-size:15px;margin:18px 0 8px;">Описание</div>'
+  + '<p style="font-size:13.5px;line-height:1.65;color:#4A564E;margin:0 0 '+(adultPhoto?'20':'24')+'px;">Большая коробка — выгодное решение для питомников, ландшафтных проектов и групповых посадок: один выбранный вид на всю коробку. '+DESCRIPTIONS[chosen.category]+'</p>'
+  + (adultPhoto ? ('<div style="font-weight:700;font-size:15px;margin-bottom:10px;">Взрослое дерево</div>'
+      + '<div style="border-radius:16px;overflow:hidden;margin-bottom:24px;"><img src="'+img(adultPhoto)+'" style="width:100%;display:block;"></div>') : '')
+  + '</div></div>'
+  + '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid #ECE7DA;padding:14px 20px 22px;z-index:50;">'
+  + '<button data-bulk-add-to-box="'+p.id+'" class="primary-btn">Добавить коробку · '+formatPrice(p.price)+'</button>'
+  + '</div>';
+}
+
+function screenCart(){
+  const cart = state.cart;
+  const subtotal = cartTotalPrice(cart);
+  const slots = cartTotalSlots(cart);
+  const promo = state.cart.length && state.appliedPromo ? state.appliedPromo : null;
+  const discount = promo ? promo.discount : 0;
+  const total = Math.max(0, subtotal-discount);
+  const ok = canCheckout(cart);
+  const pieces = cartTotalPieces(cart);
+
+  const boxes = computeBoxes(cart);
+  const boxesHtml = boxes.map(function(box, idx){
+    const complete = boxIsComplete(box);
+    const boxSlots = box.reduce(function(s,e){ return s+(e.bulk?2:1); },0);
+    const rows = box.map(function(entry){
+      const p = getProduct(entry.productId);
+      const photo = entry.bulk ? getProduct(entry.species).img : p.img;
+      return '<div style="display:flex;gap:12px;align-items:center;padding:8px 0;">'
+        + '<div style="width:56px;height:56px;border-radius:12px;flex-shrink:0;overflow:hidden;"><img src="'+img(photo)+'" style="width:100%;height:100%;object-fit:cover;"></div>'
+        + '<div style="flex:1;">'
+        + '<div style="font-weight:700;font-size:13px;">'+boxEntryLabel(entry)+'</div>'
+        + '<div style="font-size:11px;color:#8A968E;margin-top:2px;">'+formatPrice(getProduct(entry.productId).price)+'</div>'
+        + '</div>'
+        + '<div data-remove-entry="'+entry.uid+'" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#C97A5A;font-size:16px;flex-shrink:0;">×</div>'
+        + '</div>';
+    }).join('<div style="border-top:1px solid #F0ECE0;"></div>');
+    return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:12px 14px;margin-bottom:12px;">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'
+      + '<span style="font-weight:700;font-size:13.5px;color:#21362A;">Коробка '+(idx+1)+'</span>'
+      + '<span style="font-size:11px;font-weight:700;color:'+(complete?'#5A8D5F':'#C97A5A')+';">'+boxSlots+' из 2 мест'+(complete?' · собрана':'')+'</span>'
+      + '</div>'
+      + rows
+      + '</div>';
+  }).join('');
+
+  const emptyState = '<div style="text-align:center;padding:60px 20px;color:#8A968E;">'
+    + '<div style="font-size:14px;margin-bottom:16px;">Коробка пока пуста</div>'
+    + '<button data-nav="#/catalog" class="primary-btn" style="width:auto;padding:12px 24px;">Перейти в каталог</button></div>';
+
+  const slotNote = cart.length===0 ? '' : (ok
+    ? '<div style="font-size:12px;color:#5A8D5F;font-weight:700;margin-top:6px;">'+ICONS.check+' Все коробки собраны ('+boxes.length+') — можно оформить</div>'
+    : '<div style="font-size:12px;color:#C97A5A;font-weight:700;margin-top:6px;">Занято мест: '+slots+'. Добавьте ещё '+slotsNeededToComplete(slots)+', чтобы оформить заказ</div>');
+
+  const bottomPanel = cart.length===0 ? '' : (
+    '<div style="flex-shrink:0;background:#fff;border-top:1px solid #ECE7DA;padding:14px 20px;box-shadow:0 -8px 20px rgba(24,42,32,0.06);">'
+    + '<div style="display:flex;gap:10px;">'
+    + '<input id="promoInput" placeholder="Промокод" value="'+(state.promoInput||'')+'" style="flex:1;background:#fff;border:1px solid #E4DFD2;border-radius:14px;padding:12px 14px;font-size:13px;color:#21362A;outline:none;">'
+    + '<button data-apply-promo style="background:#21362A;color:#F3EEE3;border:none;padding:0 20px;border-radius:14px;font-size:13px;font-weight:700;">Применить</button>'
+    + '</div>'
+    + (state.promoMessage ? '<div style="font-size:11.5px;color:'+(promo?'#5A8D5F':'#C97A5A')+';margin-top:6px;">'+state.promoMessage+'</div>' : '')
+    + '<div style="margin-top:14px;padding-top:14px;border-top:1px solid #E4DFD2;display:flex;flex-direction:column;gap:8px;">'
+    + '<div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4A564E;"><span>Товары, '+pieces+' шт</span><span>'+formatPrice(subtotal)+'</span></div>'
+    + (discount>0 ? '<div style="display:flex;justify-content:space-between;font-size:13.5px;color:#5A8D5F;"><span>Промокод '+promo.code+'</span><span>−'+formatPrice(discount)+'</span></div>' : '')
+    + '<div style="display:flex;justify-content:space-between;font-size:13.5px;color:#4A564E;"><span>Доставка</span><span>Бесплатно</span></div>'
+    + '<div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;color:#21362A;margin-top:2px;"><span>Итого</span><span>'+formatPrice(total)+'</span></div>'
+    + '</div>'
+    + '<button data-checkout-go class="primary-btn" style="margin-top:14px;" '+(ok?'':'disabled')+'>'+(ok?'Оформить заказ':'Заполните коробку до чётного числа мест')+'</button>'
+    + '</div>'
+  );
+
+  return '<div style="position:fixed;top:0;left:0;right:0;bottom:'+NAV_HEIGHT+'px;max-width:480px;margin:0 auto;background:#FAF7F0;display:flex;flex-direction:column;overflow:hidden;">'
+  + '<div style="padding:26px 20px 12px;flex-shrink:0;">'
+  + '<div class="serif" style="font-size:26px;color:#21362A;font-weight:600;margin-bottom:6px;">Корзина</div>'
+  + slotNote
+  + '</div>'
+  + '<div style="flex:1;overflow-y:auto;padding:0 20px 16px;">'
+  + (cart.length===0 ? emptyState : boxesHtml)
+  + '</div>'
+  + bottomPanel
+  + '</div>'
+  + partialNav('cart');
+}
+
+function screenCheckout(){
+  const f = state.checkoutForm;
+  const errors = state.checkoutErrors || {};
+  const subtotal = cartTotalPrice(state.cart);
+  const discount = state.appliedPromo ? state.appliedPromo.discount : 0;
+  const total = Math.max(0, subtotal-discount);
+  const pieces = cartTotalPieces(state.cart);
+
+  const legalLine = '<div style="display:flex;gap:10px;align-items:flex-start;">'
+    + checkboxHTML(!!f.legalConsent, 'toggle-consent="legal"')
+    + '<div data-toggle-consent="legal" style="font-size:12px;color:#4A564E;line-height:1.55;cursor:pointer;">Я принимаю <span data-open-doc="privacy" style="color:#21362A;font-weight:700;text-decoration:underline;">Политику обработки персональных данных</span>, <span data-open-doc="offer" style="color:#21362A;font-weight:700;text-decoration:underline;">Публичную оферту</span> и даю <span data-open-doc="consent" style="color:#21362A;font-weight:700;text-decoration:underline;">согласие на обработку персональных данных</span></div>'
+    + '</div>';
+
+  const marketingLine = '<div style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;">'
+    + checkboxHTML(!!f.marketingConsent, 'toggle-consent="marketing"')
+    + '<div data-toggle-consent="marketing" style="font-size:12px;color:#8A968E;line-height:1.55;cursor:pointer;">Согласен(на) получать рекламные и информационные рассылки (необязательно)</div>'
+    + '</div>';
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:120px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Оформление заказа', '#/cart')
+  + (errors.blocked ? '<div style="background:#F7E6E0;color:#C97A5A;border-radius:12px;padding:12px 14px;font-size:12.5px;margin-bottom:16px;">'+errors.blocked+'</div>' : '')
+  + '<div style="background:#F3EEE3;border-radius:14px;padding:14px 16px;margin-bottom:'+(errors.legalConsent?'6':'22')+'px;">'
+  + legalLine + marketingLine
+  + '</div>'
+  + (errors.legalConsent ? '<div class="errtext" style="margin-bottom:22px;">'+errors.legalConsent+'</div>' : '')
+  + '<div style="font-size:12px;font-weight:700;color:#6E7B72;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Контакты</div>'
+  + '<input class="field'+(errors.name?' error':'')+'" data-field="name" placeholder="ФИО" value="'+(f.name||'').replace(/"/g,'&quot;')+'">'
+  + (errors.name ? '<div class="errtext">'+errors.name+'</div>' : '')
+  + '<input class="field'+(errors.phone?' error':'')+'" id="phoneField" data-field="phone" inputmode="numeric" placeholder="+7 900 000 00 00" value="'+(f.phone||'+7').replace(/"/g,'&quot;')+'">'
+  + (errors.phone ? '<div class="errtext">'+errors.phone+'</div>' : '')
+  + '<input class="field'+(errors.email?' error':'')+'" data-field="email" placeholder="Email для чека" value="'+(f.email||'').replace(/"/g,'&quot;')+'">'
+  + (errors.email ? '<div class="errtext">'+errors.email+'</div>' : '')
+  + (state.savedAddresses.length ? ('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">'
+      + state.savedAddresses.map(function(a){ return '<div data-use-address="'+a.id+'" class="chip" style="cursor:pointer;">'+a.label+'</div>'; }).join('')
+      + '</div>') : '')
+  + '<input class="field'+(errors.city?' error':'')+'" data-field="city" placeholder="Город" value="'+(f.city||'').replace(/"/g,'&quot;')+'">'
+  + (errors.city ? '<div class="errtext">'+errors.city+'</div>' : '')
+  + '<input class="field'+(errors.address?' error':'')+'" data-field="address" placeholder="Адрес или пункт выдачи СДЭК" value="'+(f.address||'').replace(/"/g,'&quot;')+'">'
+  + (errors.address ? '<div class="errtext">'+errors.address+'</div>' : '')
+  + '<div style="font-size:12px;font-weight:700;color:#6E7B72;text-transform:uppercase;letter-spacing:0.5px;margin:22px 0 12px;">Способ доставки</div>'
+  + state.deliveryOptions.map(function(d){
+      const sel = f.delivery===d.id;
+      return '<div class="opt'+(sel?' sel':'')+'" data-select-delivery="'+d.id+'">'
+        + '<div style="width:18px;height:18px;border-radius:50%;flex-shrink:0;'+(sel?'border:5px solid #9DC698;':'border:1.5px solid #C9C2B0;')+'"></div>'
+        + '<div style="flex:1;"><div style="font-weight:700;font-size:13.5px;">'+d.name+'</div><div style="font-size:11.5px;color:#6E7B72;">'+d.shortDesc+'</div></div>'
+        + '<div style="font-size:12.5px;font-weight:700;color:#6B9971;">Бесплатно</div></div>';
+    }).join('')
+  + '<div style="font-size:12px;font-weight:700;color:#6E7B72;text-transform:uppercase;letter-spacing:0.5px;margin:22px 0 12px;">Комментарий к заказу</div>'
+  + '<textarea class="field" data-field="comment" placeholder="Например: позвонить за час до доставки" style="min-height:56px;resize:vertical;">'+(f.comment||'')+'</textarea>'
+  + '</div></div>'
+  + '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid #ECE7DA;padding:12px 20px 20px;z-index:50;">'
+  + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><span style="font-size:12.5px;color:#8A968E;">'+pieces+' шт</span><span style="font-size:16px;font-weight:800;color:#21362A;">'+formatPrice(total)+'</span></div>'
+  + '<button data-submit-checkout class="primary-btn">Перейти к оплате</button>'
+  + '</div>'
+  + docModalHTML();
+}
+
+function screenDelivery(){
+  const f = state.checkoutForm;
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:110px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Способ получения', '#/checkout')
+  + state.deliveryOptions.map(function(d){
+      const sel = f.delivery===d.id;
+      return '<div class="opt'+(sel?' sel':'')+'" data-select-delivery="'+d.id+'" style="border-radius:18px;padding:16px;flex-direction:column;align-items:stretch;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;">'
+        + '<div style="display:flex;gap:12px;">'
+        + '<div style="width:18px;height:18px;border-radius:50%;flex-shrink:0;margin-top:2px;'+(sel?'border:5px solid #9DC698;':'border:1.5px solid #C9C2B0;')+'"></div>'
+        + '<div><div style="font-weight:700;font-size:15px;">'+d.name+'</div><div style="font-size:12.5px;color:#6E7B72;margin-top:4px;line-height:1.5;">'+d.fullDesc+'</div></div>'
+        + '</div><div style="font-size:13px;font-weight:700;color:#6B9971;white-space:nowrap;">Бесплатно</div></div></div>';
+    }).join('')
+  + '<div style="background:#EFE9DA;border-left:3px solid #D6B98C;border-radius:12px;padding:14px 16px;font-size:12.5px;color:#5A5346;line-height:1.6;margin-top:6px;">Саженцы с закрытой корневой системой (в контейнере) переносят доставку в любое время года без потерь.</div>'
+  + '</div></div>'
+  + '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid #ECE7DA;padding:14px 20px 22px;z-index:50;">'
+  + '<button data-confirm-delivery class="primary-btn">Продолжить</button></div>';
+}
+
+function screenSuccess(orderIdParam){
+  const orderId = parseInt(orderIdParam,10);
+  const order = state.orders.find(o=>o.id===orderId);
+  if (!order){ go('#/home'); return ''; }
+  const pieces = cartTotalPieces(order.items);
+  const delivery = state.deliveryOptions.find(d=>d.id===order.delivery.id) || state.deliveryOptions[0];
+
+  return '<div style="width:100%;min-height:100vh;position:relative;background:#FAF7F0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 28px 100px;text-align:center;">'
+  + '<div style="width:78px;height:78px;border-radius:50%;background:#9DC698;display:flex;align-items:center;justify-content:center;margin-bottom:26px;">'+ICONS.checkBig+'</div>'
+  + '<h1 class="serif" style="font-size:27px;color:#21362A;margin:0 0 12px;font-weight:600;">'+(order.status==='paid' ? 'Оплата прошла успешно!' : 'Заказ оформлен!')+'</h1>'
+  + '<p style="font-size:14px;color:#6E7B72;line-height:1.6;margin:0 0 20px;max-width:280px;">Номер заказа №'+order.id+'. Пришлём уведомление, когда саженцы будут готовы к отправке.</p>'
+  + (order.status==='paid' ? '<div style="width:100%;background:#F3F8F2;border:1px solid #DCEBDA;border-radius:14px;padding:12px 16px;text-align:left;margin-bottom:20px;font-size:12.5px;color:#4A7A4F;display:flex;flex-direction:column;gap:6px;">'
+      + '<div style="font-weight:700;color:#21362A;margin-bottom:2px;">Статус: Оплачен</div>'
+      + (order.buyerConfirmationSent ? '<div>✓ Подтверждение оплаты отправлено вам</div>' : '')
+      + (order.receiptSent ? '<div>✓ Чек отправлен на '+(order.email||'почту')+'</div>' : '<div style="color:#8A968E;">Чек появится после подключения онлайн-кассы</div>')
+    + '</div>' : '')
+  + '<div style="width:100%;background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px 18px;text-align:left;margin-bottom:30px;">'
+  + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;margin-bottom:8px;"><span>'+pieces+' шт</span><span style="font-weight:700;color:#21362A;">'+formatPrice(order.total)+'</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;"><span>'+delivery.name+'</span><span>'+order.delivery.dateRange+'</span></div>'
+  + '</div>'
+  + '<button data-nav="#/orders/'+order.id+'" class="primary-btn" style="margin-bottom:14px;">Отследить заказ</button>'
+  + '<div data-nav="#/home" style="font-size:13.5px;color:#6B9971;font-weight:700;cursor:pointer;">На главную</div>'
+  + '</div>';
+}
+
+function screenProfile(){
+  const p = state.profile;
+  const initials = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const unreadCount = unreadNotificationCount();
+  const favCount = (state.favorites||[]).length;
+  const rows = [
+    {label:'Мои заказы', route:'#/orders', icon:'<path d="M4 7 H20 V19 H4 Z"/><path d="M4 7 L12 13 L20 7"/>'},
+    {label:'Избранное', route:'#/favorites', icon:'<path d="M12 20 C7 15.5 3 12.2 3 8.3 C3 5.6 5.1 3.5 7.7 3.5 C9.4 3.5 11 4.4 12 5.8 C13 4.4 14.6 3.5 16.3 3.5 C18.9 3.5 21 5.6 21 8.3 C21 12.2 17 15.5 12 20 Z"/>', count:favCount},
+    {label:'Адреса доставки', route:'#/addresses', icon:'<path d="M12 21 C12 21 5 14.5 5 9.5 C5 5.9 8.1 3 12 3 C15.9 3 19 5.9 19 9.5 C19 14.5 12 21 12 21 Z"/><circle cx="12" cy="9.5" r="2.4"/>'},
+    {label:'Уведомления', route:'#/notifications', icon:'<path d="M6 9 C6 5.7 8.7 3 12 3 C15.3 3 18 5.7 18 9 C18 14 20 15 20 16 H4 C4 15 6 14 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/>', count:unreadCount},
+    {label:'Поддержка', route:'#/support', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 16 V16.1 M12 8 C13.5 8 14.5 9 14.5 10.2 C14.5 11.8 12 12 12 14"/>'},
+    {label:'Настройки', route:'#/app-settings', icon:'<circle cx="12" cy="12" r="3"/><path d="M4 12 H2 M22 12 H20 M12 4 V2 M12 22 V20 M6 6 L4.6 4.6 M19.4 19.4 L18 18 M18 6 L19.4 4.6 M4.6 19.4 L6 18"/>'},
+    {label:'Админ-панель (демо)', route:'#/admin', icon:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9 H21 M8 15 H9 M12 15 H16"/>'},
+  ];
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="position:relative;overflow:hidden;padding:30px 20px 34px;display:flex;align-items:center;gap:16px;">'
+  + '<div style="position:absolute;top:0;left:0;width:50%;height:100%;overflow:hidden;"><img src="'+img('vetki-sharp.jpg')+'" style="width:100%;height:100%;object-fit:cover;object-position:right top;transform:scaleX(-1);filter:brightness(1.55) saturate(1.05);"></div>'
+  + '<div style="position:absolute;top:0;right:0;width:50%;height:100%;overflow:hidden;"><img src="'+img('vetki-sharp.jpg')+'" style="width:100%;height:100%;object-fit:cover;object-position:right top;filter:brightness(1.55) saturate(1.05);"></div>'
+  + '<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(120% 160% at 50% 46%, rgba(24,42,32,0.5) 0%, rgba(24,42,32,0.3) 60%, rgba(24,42,32,0.14) 100%);"></div>'
+  + '<div style="width:60px;height:60px;border-radius:50%;background:#9DC698;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#21362A;position:relative;flex-shrink:0;">'+initials+'</div>'
+  + '<div style="flex:1;position:relative;"><div style="color:#FAF7F0;font-weight:700;font-size:17px;text-shadow:0 1px 6px rgba(15,27,20,0.55);">'+p.name+'</div><div style="color:#DCE8D8;font-size:12.5px;margin-top:3px;text-shadow:0 1px 5px rgba(15,27,20,0.55);">'+p.phone+'</div></div>'
+  + '</div>'
+  + '<div style="padding:10px 20px 0;">'
+  + rows.map(function(r){
+      const countBadge = r.count ? '<span style="background:#F3EEE3;color:#6B9971;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-right:4px;">'+r.count+'</span>' : '';
+      return '<div style="display:flex;align-items:center;gap:14px;padding:15px 4px;border-bottom:1px solid #ECE7DA;'+(r.route?'cursor:pointer;':'opacity:0.6;')+'"'+(r.route?' data-nav="'+r.route+'"':'')+'>'
+        + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#21362A" stroke-width="1.6">'+r.icon+'</svg>'
+        + '<div style="flex:1;font-weight:600;font-size:14px;">'+r.label+'</div>'+countBadge+ICONS.chevronRight+'</div>';
+    }).join('')
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function screenOrders(){
+  const tab = state.ordersTab || 'current';
+  const filtered = state.orders.filter(o=>tab==='current' ? (o.status!=='delivered' && o.status!=='cancelled') : o.status==='delivered').slice().reverse();
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Мои заказы', '#/profile')
+  + '<div style="display:flex;gap:22px;border-bottom:1px solid #E4DFD2;margin-bottom:20px;">'
+  + '<div data-orders-tab="current" style="cursor:pointer;font-size:14px;font-weight:700;padding-bottom:10px;'+(tab==='current'?'color:#21362A;border-bottom:2px solid #21362A;':'color:#A9A398;font-weight:600;')+'">Текущие</div>'
+  + '<div data-orders-tab="delivered" style="cursor:pointer;font-size:14px;font-weight:700;padding-bottom:10px;'+(tab==='delivered'?'color:#21362A;border-bottom:2px solid #21362A;':'color:#A9A398;font-weight:600;')+'">Завершённые</div>'
+  + '</div>'
+  + (filtered.length ? filtered.map(function(o){
+      const pieces = cartTotalPieces(o.items);
+      const groups = groupEntries(o.items);
+      const thumbs = groups.slice(0,2).map(function(g){ const p=getProduct(g.productId); const photo = g.bulk ? getProduct(g.species).img : p.img; return '<div style="width:44px;height:44px;border-radius:9px;overflow:hidden;"><img src="'+img(photo)+'" style="width:100%;height:100%;object-fit:cover;"></div>'; }).join('');
+      const more = groups.length>2 ? '<div style="width:44px;height:44px;border-radius:9px;background:#F3EEE3;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8A968E;font-weight:700;">+'+(groups.length-2)+'</div>' : '';
+      const statusLabel = ORDER_STATUS_LABELS[o.status] || o.status;
+      const statusStyle = ORDER_STATUS_STYLES[o.status] || ORDER_STATUS_STYLES.processing;
+      return '<div data-nav="#/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:18px;padding:16px;margin-bottom:14px;cursor:pointer;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;"><div><div style="font-weight:700;font-size:14.5px;">Заказ №'+o.id+'</div><div style="font-size:11.5px;color:#8A968E;margin-top:2px;">от '+o.dateLabel+'</div></div><span style="'+statusStyle+'font-size:10.5px;font-weight:700;padding:5px 11px;border-radius:999px;">'+statusLabel+'</span></div>'
+        + '<div style="display:flex;gap:8px;margin-bottom:12px;">'+thumbs+more+'</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#6E7B72;">'+pieces+' шт · '+formatPrice(o.total)+'</span><span style="font-size:13px;font-weight:700;color:#21362A;">Подробнее →</span></div>'
+        + '</div>';
+    }).join('') : '<div style="text-align:center;color:#A9A398;font-size:13px;padding:40px 0;">Пока нет заказов</div>')
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function screenOrderDetail(idParam){
+  const id = parseInt(idParam,10);
+  const o = state.orders.find(x=>x.id===id);
+  if (!o){ go('#/orders'); return ''; }
+  const pieces = cartTotalPieces(o.items);
+  const delivery = state.deliveryOptions.find(d=>d.id===o.delivery.id) || state.deliveryOptions[0];
+  const statusLabel = ORDER_STATUS_LABELS[o.status] || o.status;
+  const statusStyle = ORDER_STATUS_STYLES[o.status] || ORDER_STATUS_STYLES.processing;
+
+  const items = groupEntries(o.items).map(function(g){
+    const p = getProduct(g.productId);
+    if(!p) return '';
+    const photo = g.bulk ? getProduct(g.species).img : p.img;
+    const label = g.bulk ? (p.name+' · '+getProduct(g.species).name) : p.name;
+    return '<div style="display:flex;gap:12px;background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:12px;align-items:center;margin-bottom:10px;">'
+      + '<div style="width:56px;height:56px;border-radius:12px;flex-shrink:0;overflow:hidden;"><img src="'+img(photo)+'" style="width:100%;height:100%;object-fit:cover;"></div>'
+      + '<div style="flex:1;"><div style="font-weight:700;font-size:13px;">'+label+'</div><div style="font-size:11px;color:#8A968E;">'+g.count+' × '+p.unitLabel+'</div></div>'
+      + '<div style="font-weight:800;font-size:13px;">'+formatPrice(p.price*g.count)+'</div></div>';
+  }).join('');
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Заказ №'+o.id, '#/orders')
+  + '<div style="display:inline-block;'+statusStyle+'font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;margin-bottom:16px;">'+statusLabel+'</div>'
+  + (o.status==='paid' ? '<div style="display:flex;flex-direction:column;gap:6px;background:#F3F8F2;border:1px solid #DCEBDA;border-radius:14px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#4A7A4F;">'
+      + (o.buyerConfirmationSent ? '<div>✓ Подтверждение оплаты отправлено вам</div>' : '')
+      + (o.receiptSent ? '<div>✓ Чек отправлен на '+(o.email||'вашу почту')+'</div>' : '<div style="color:#8A968E;">Чек будет отправлен после подключения онлайн-кассы</div>')
+    + '</div>' : '')
+  + items
+  + '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #E4DFD2;display:flex;flex-direction:column;gap:8px;">'
+  + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;"><span>Товары, '+pieces+' шт</span><span>'+formatPrice(o.total)+'</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;"><span>Доставка</span><span>Бесплатно</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;"><span>'+delivery.name+'</span><span>'+o.delivery.dateRange+'</span></div>'
+  + '<div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;color:#21362A;margin-top:4px;"><span>Итого</span><span>'+formatPrice(o.total)+'</span></div>'
+  + '</div>'
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+/* ============================== ACTIONS ============================== */
+
+function handleApplyPromo(){
+  const code = state.promoInput || '';
+  const subtotal = cartTotalPrice(state.cart);
+  const result = applyPromoCode(code, subtotal);
+  if (result.valid){
+    state.appliedPromo = result;
+    state.promoMessage = 'Промокод применён: −'+formatPrice(result.discount);
+  } else {
+    state.appliedPromo = null;
+    state.promoMessage = 'Промокод не найден';
+  }
+  saveState();
+}
+
+function handleCheckoutSubmit(){
+  const errors = validateContact(state.checkoutForm);
+  if (isPhoneBlocked(state.checkoutForm.phone)) errors.blocked = 'Оформление заказа для этого номера ограничено. Свяжитесь с поддержкой.';
+  state.checkoutErrors = errors;
+  saveState();
+  if (Object.keys(errors).length===0) go('#/delivery');
+  else render(true);
+}
+
+function isPhoneBlocked(phone){
+  const digits = (phone||'').replace(/\D/g,'');
+  return (state.blockedCustomers||[]).indexOf(digits) !== -1;
+}
+
+function handleConfirmDelivery(){
+  const d = state.deliveryOptions.find(x=>x.id===state.checkoutForm.delivery) || state.deliveryOptions[0];
+  const subtotal = cartTotalPrice(state.cart);
+  const discount = state.appliedPromo ? state.appliedPromo.discount : 0;
+  const total = Math.max(0, subtotal-discount);
+  const order = {
+    id: state.nextOrderId,
+    dateLabel: formatToday(),
+    createdAt: new Date().toISOString(),
+    status: 'pending_payment',
+    email: state.checkoutForm.email,
+    items: cartToOrderItems(state.cart),
+    total: total,
+    delivery: { id:d.id, dateRange: formatDateRange(d.minDays, d.maxDays) },
+    customer: {
+      name: state.checkoutForm.name, phone: state.checkoutForm.phone, email: state.checkoutForm.email,
+      city: state.checkoutForm.city, address: state.checkoutForm.address, marketingConsent: !!state.checkoutForm.marketingConsent,
+    },
+    statusHistory: [{status:'pending_payment', ts:formatToday(), by:'покупатель'}],
+  };
+  state.orders.push(order);
+  state.nextOrderId += 1;
+  if (state.appliedPromo && state.appliedPromo.valid){
+    const promo = (state.promoCodes||[]).find(function(p){ return p.code===state.appliedPromo.code; });
+    if (promo) promo.usedCount = (promo.usedCount||0) + 1;
+  }
+  state.cart = [];
+  state.appliedPromo = null;
+  state.promoMessage = '';
+  state.promoInput = '';
+  state.checkoutForm = { name:'', phone:'+7', email:'', city:'', address:'', comment:'', delivery:'cdek', legalConsent:false, marketingConsent:false };
+  state.checkoutErrors = {};
+  saveState();
+
+  // ТОЧКА ИНТЕГРАЦИИ С БАНКОМ: здесь сейчас синхронно эмулируется мгновенно успешная оплата.
+  // После подключения реального банка/эквайринга этот вызов confirmPayment() уедет в обработчик
+  // колбэка/вебхука об успешной оплате (заказ до этого момента будет висеть в статусе 'pending_payment').
+  confirmPayment(order.id, { provider:'mock', transactionId:'MOCK-'+order.id });
+  pushNotification('Заказ №'+order.id+': Оплачен', 'Оплата прошла успешно. Спасибо за заказ!', {orderId:order.id});
+
+  go('#/success/'+order.id);
+}
+
+/* ============================== ADMIN: LOGIC ============================== */
+
+function currentAdmin(){ return state.admins.find(function(a){ return a.id===state.admin.currentAdminId; }); }
+
+function adminCan(sectionKey){
+  const a = currentAdmin();
+  if (!a || a.active===false) return false;
+  if (a.role==='superadmin') return true;
+  if (sectionKey==='admins') return false;
+  return a.permissions.indexOf(sectionKey)!==-1;
+}
+
+function logAdminAction(action){
+  const a = currentAdmin();
+  state.adminAuditLog.unshift({ id: Date.now()+'-'+Math.random().toString(36).slice(2), ts: new Date().toLocaleString('ru-RU'), adminName: a?a.name:'—', action: action });
+  if (state.adminAuditLog.length>300) state.adminAuditLog.length = 300;
+  saveState();
+}
+
+function deriveCustomers(){
+  const map = new Map();
+  state.orders.forEach(function(o){
+    const c = o.customer; if (!c || !c.phone) return;
+    const key = c.phone.replace(/\D/g,'');
+    if (!map.has(key)) map.set(key, { phone:c.phone, phoneKey:key, name:c.name, email:c.email, city:c.city, marketingConsent:!!c.marketingConsent, ordersCount:0, totalSpent:0, lastOrderAt:o.createdAt });
+    const rec = map.get(key);
+    rec.ordersCount += 1;
+    rec.totalSpent += o.total;
+    if (!rec.lastOrderAt || (o.createdAt && o.createdAt > rec.lastOrderAt)){
+      rec.lastOrderAt = o.createdAt; rec.name = c.name; rec.email = c.email; rec.city = c.city; rec.marketingConsent = !!c.marketingConsent;
+    }
+  });
+  return Array.from(map.values());
+}
+
+const PRODUCT_IMAGE_CHOICES = Array.from(new Set(PRODUCTS.map(function(p){ return p.img; })));
+
+function adminInput(field, label, value, type){
+  type = type || 'text';
+  const numAttr = type==='number' ? ' data-numeric' : '';
+  const safeVal = (value==null?'':String(value)).replace(/"/g,'&quot;');
+  return '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">'+label+'</label>'
+    + '<input class="field" style="margin-bottom:0;" type="'+type+'" data-admin-field="'+field+'"'+numAttr+' value="'+safeVal+'"></div>';
+}
+function adminSelect(field, label, value, options){
+  return '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">'+label+'</label>'
+    + '<select class="field" style="margin-bottom:0;" data-admin-field="'+field+'">'
+    + options.map(function(o){ return '<option value="'+o.value+'"'+(String(o.value)===String(value)?' selected':'')+'>'+o.label+'</option>'; }).join('')
+    + '</select></div>';
+}
+function adminTextarea(field, label, value){
+  return '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">'+label+'</label>'
+    + '<textarea class="field" style="margin-bottom:0;min-height:80px;" data-admin-field="'+field+'">'+(value||'')+'</textarea></div>';
+}
+function adminCheckboxField(field, label, checked){
+  return '<div data-admin-field-toggle="'+field+'" style="display:flex;align-items:center;gap:10px;margin-bottom:6px;padding:10px 4px;cursor:pointer;">'
+    + checkboxHTML(!!checked, 'admin-field-toggle="'+field+'"')
+    + '<span style="font-size:12.5px;color:#4A564E;">'+label+'</span></div>';
+}
+function adminStatCard(label, value){
+  return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;"><div style="font-size:10.5px;color:#8A968E;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">'+label+'</div><div style="font-weight:800;font-size:18px;color:#21362A;">'+value+'</div></div>';
+}
+function adminDraftErrorHTML(){
+  return state.adminDraftError ? '<div style="background:#F7E6E0;color:#C97A5A;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:12px;">'+state.adminDraftError+'</div>' : '';
+}
+
+/* ============================== ADMIN: SCREENS ============================== */
+
+function screenAdmin(section, param2){
+  if (!state.admin.loggedIn) return screenAdminLogin();
+  if (!state.admin.currentAdminId) return screenAdminPickIdentity();
+  const sec = section || state.adminSection || 'orders';
+  const a = currentAdmin();
+  const allowed = sec==='admins' ? !!(a && a.role==='superadmin') : adminCan(sec);
+  if (!allowed) return adminShellHTML(sec, adminAccessDeniedHTML(sec));
+  state.adminSection = sec;
+  let body='';
+  switch(sec){
+    case 'orders': body = param2 ? screenAdminOrderDetail(param2) : screenAdminOrders(); break;
+    case 'customers': body = param2 ? screenAdminCustomerDetail(param2) : screenAdminCustomers(); break;
+    case 'support': body = param2 ? screenAdminSupportThread(param2) : screenAdminSupport(); break;
+    case 'catalog': body = screenAdminCatalog(param2); break;
+    case 'broadcasts': body = screenAdminBroadcasts(); break;
+    case 'promo': body = screenAdminPromo(); break;
+    case 'delivery': body = screenAdminDelivery(); break;
+    case 'analytics': body = screenAdminAnalytics(); break;
+    case 'settings': body = screenAdminSettings(); break;
+    case 'admins': body = screenAdminAdmins(); break;
+    default: body = screenAdminOrders();
+  }
+  return adminShellHTML(sec, body);
+}
+
+function adminAccessDeniedHTML(sec){
+  const label = (ADMIN_SECTIONS.find(function(s){ return s.key===sec; })||{}).label || sec;
+  return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:24px;text-align:center;color:#8A968E;font-size:13px;">У вашей учётной записи нет доступа к разделу «'+label+'».</div>';
+}
+
+function adminShellHTML(active, bodyHtml){
+  const a = currentAdmin();
+  const visibleSections = ADMIN_SECTIONS.filter(function(s){
+    if (s.key==='admins') return a && a.role==='superadmin';
+    return adminCan(s.key);
+  });
+  const supportUnread = state.supportThreads.filter(function(t){ return t.adminUnread; }).length;
+  const tabs = visibleSections.map(function(s){
+    const badge = (s.key==='support' && supportUnread>0) ? ' <span style="background:#C97A5A;color:#fff;border-radius:999px;padding:2px 7px;font-size:10px;margin-left:2px;">'+supportUnread+'</span>' : '';
+    return '<div data-nav="#/admin/'+s.key+'" style="padding:11px 16px;min-height:20px;display:flex;align-items:center;border-radius:11px;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer;'+(active===s.key?'background:#21362A;color:#F3EEE3;':'background:#F3EEE3;color:#4A564E;')+'">'+s.label+badge+'</div>';
+  }).join('');
+  return '<div style="width:100%;min-height:100vh;background:#FAF7F0;">'
+    + '<div style="background:#21362A;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
+    + '<div style="color:#F3EEE3;font-weight:800;font-size:14px;letter-spacing:0.5px;">ЖИВОЕ НАСЛЕДИЕ · АДМИН</div>'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    + '<span style="color:#B9D6B4;font-size:12px;">'+(a?a.name+' · '+(a.role==='superadmin'?'суперадмин':'менеджер'):'')+'</span>'
+    + '<button data-admin-logout style="background:transparent;border:1px solid rgba(243,238,227,0.4);color:#F3EEE3;padding:10px 14px;border-radius:9px;font-size:11.5px;font-weight:700;min-height:20px;">Выйти</button>'
+    + '<div data-nav="#/home" style="color:#B9D6B4;font-size:12px;cursor:pointer;text-decoration:underline;padding:10px 6px;margin:-10px -6px;">В магазин</div>'
+    + '</div></div>'
+    + '<div style="background:#F7E6D3;color:#8A6A3A;font-size:11.5px;padding:8px 20px;">Демо-режим: доступ и права проверяются только в браузере, это не настоящая защита. Реальная авторизация появится вместе с сервером.</div>'
+    + '<div style="position:relative;">'
+    + '<div style="display:flex;gap:8px;padding:14px 20px 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;">'+tabs+'</div>'
+    + '<div style="position:absolute;top:0;right:0;bottom:6px;width:30px;background:linear-gradient(to right, rgba(250,247,240,0), #FAF7F0 70%);pointer-events:none;"></div>'
+    + '</div>'
+    + '<div style="padding:12px 20px 60px;">'+bodyHtml+'</div>'
+    + '</div>';
+}
+
+function screenAdminLogin(){
+  const err = state.adminLoginError;
+  return '<div style="width:100%;min-height:100vh;background:#21362A;display:flex;align-items:center;justify-content:center;padding:20px;">'
+    + '<div style="background:#FAF7F0;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;">'
+    + '<h1 class="serif" style="font-size:22px;color:#21362A;margin:0 0 6px;">Вход в админ-панель</h1>'
+    + '<p style="font-size:12px;color:#8A968E;margin:0 0 18px;line-height:1.5;">Демо-доступ. PIN нужен только для показа прототипа — это не настоящая авторизация.</p>'
+    + (err ? '<div style="background:#F7E6E0;color:#C97A5A;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:12px;">'+err+'</div>' : '')
+    + '<input class="field" type="password" inputmode="numeric" id="adminPinInput" placeholder="PIN" value="'+(state.adminLoginPin||'')+'">'
+    + '<button data-admin-login-submit class="primary-btn">Войти</button>'
+    + '<div data-nav="#/home" style="text-align:center;margin-top:14px;font-size:12px;color:#8A968E;cursor:pointer;">Вернуться в магазин</div>'
+    + '</div></div>';
+}
+
+function screenAdminPickIdentity(){
+  return '<div style="width:100%;min-height:100vh;background:#21362A;display:flex;align-items:center;justify-content:center;padding:20px;">'
+    + '<div style="background:#FAF7F0;border-radius:20px;padding:28px 24px;width:100%;max-width:380px;">'
+    + '<h1 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Войти как…</h1>'
+    + state.admins.filter(function(a){ return a.active!==false; }).map(function(a){
+        return '<div data-admin-select-identity="'+a.id+'" style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1.5px solid #E4DFD2;border-radius:14px;padding:13px 15px;margin-bottom:10px;cursor:pointer;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">'+a.name+'</div><div style="font-size:11px;color:#8A968E;">TG ID '+a.telegramId+' · '+(a.role==='superadmin'?'суперадмин':'менеджер')+'</div></div>'
+          + ICONS.chevronRight + '</div>';
+      }).join('')
+    + '</div></div>';
+}
+
+function screenAdminOrders(){
+  const q = (state.adminOrderQuery||'').toLowerCase();
+  const statusFilter = state.adminOrderStatusFilter || 'all';
+  let list = state.orders.slice().reverse();
+  if (statusFilter!=='all') list = list.filter(function(o){ return o.status===statusFilter; });
+  if (q) list = list.filter(function(o){
+    const c = o.customer || {};
+    return String(o.id).indexOf(q)!==-1 || (c.name||'').toLowerCase().indexOf(q)!==-1 || (c.phone||'').replace(/\D/g,'').indexOf(q.replace(/\D/g,''))!==-1;
+  });
+  const statusOptions = [{value:'all',label:'Все статусы'}].concat(Object.keys(ORDER_STATUS_LABELS).map(function(k){ return {value:k,label:ORDER_STATUS_LABELS[k]}; }));
+
+  return '<div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Заказы</h2>'
+    + '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">'
+    + '<input class="field" id="adminOrderSearch" style="margin:0;max-width:260px;" placeholder="Поиск: № заказа, имя, телефон" value="'+(state.adminOrderQuery||'')+'">'
+    + '<select class="field" id="adminOrderStatusFilter" style="margin:0;max-width:220px;">'
+      + statusOptions.map(function(o){ return '<option value="'+o.value+'"'+(o.value===statusFilter?' selected':'')+'>'+o.label+'</option>'; }).join('')
+    + '</select>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;">'
+    + (list.length ? list.map(function(o){
+        const c = o.customer || {};
+        return '<div data-nav="#/admin/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">Заказ №'+o.id+' · '+(c.name||'—')+'</div><div style="font-size:11.5px;color:#8A968E;">'+o.dateLabel+' · '+(c.phone||'')+'</div></div>'
+          + '<div style="display:flex;align-items:center;gap:10px;"><span style="'+(ORDER_STATUS_STYLES[o.status]||'')+'font-size:10.5px;font-weight:700;padding:5px 11px;border-radius:999px;">'+(ORDER_STATUS_LABELS[o.status]||o.status)+'</span><span style="font-weight:800;font-size:13.5px;">'+formatPrice(o.total)+'</span></div>'
+          + '</div>';
+      }).join('') : '<div style="color:#A9A398;font-size:13px;padding:20px 0;text-align:center;">Заказов не найдено</div>')
+    + '</div></div>';
+}
+
+function screenAdminOrderDetail(idParam){
+  const id = parseInt(idParam,10);
+  const o = state.orders.find(function(x){ return x.id===id; });
+  if (!o) return '<div>Заказ не найден.</div>';
+  const c = o.customer || {};
+  const items = groupEntries(o.items).map(function(g){
+    const p = getProduct(g.productId);
+    if (!p) return '';
+    const spName = g.bulk ? (getProduct(g.species)||{}).name : null;
+    const label = g.bulk ? (p.name+' · '+spName) : p.name;
+    return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:#4A564E;padding:7px 0;border-bottom:1px solid #F0EBDF;"><span style="min-width:0;overflow-wrap:break-word;">'+label+' × '+g.count+'</span><span style="white-space:nowrap;flex-shrink:0;">'+formatPrice(p.price*g.count)+'</span></div>';
+  }).join('');
+  const history = (o.statusHistory||[]).slice().reverse().map(function(h){
+    return '<div style="font-size:11.5px;color:#8A968E;padding:4px 0;">'+h.ts+' — '+(ORDER_STATUS_LABELS[h.status]||h.status)+' ('+h.by+')</div>';
+  }).join('');
+  const statusButtons = ORDER_STATUS_FLOW.concat(['cancelled']).map(function(s){
+    const active = o.status===s;
+    return '<button data-admin-order-status="'+o.id+'|'+s+'" style="padding:11px 15px;min-height:18px;border-radius:10px;font-size:12px;font-weight:700;border:1.5px solid '+(active?'#21362A':'#E4DFD2')+';background:'+(active?'#21362A':'#fff')+';color:'+(active?'#F3EEE3':'#4A564E')+';">'+ORDER_STATUS_LABELS[s]+'</button>';
+  }).join('');
+
+  return '<div>'
+    + '<div data-nav="#/admin/orders" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 8px -4px;">← Ко всем заказам</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Заказ №'+o.id+'</h2>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Клиент</div>'
+    + '<div style="font-size:12.5px;color:#4A564E;line-height:1.8;">'+(c.name||'—')+'<br>'+(c.phone||'')+'<br>'+(c.email||'')+'<br>'+(c.city||'')+', '+(c.address||'')+'</div>'
+    + '</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Товары</div>'
+    + items
+    + '<div style="display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;margin-top:10px;padding-top:8px;border-top:1px solid #E4DFD2;"><span>Итого</span><span>'+formatPrice(o.total)+'</span></div>'
+    + '</div>'
+    + '</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;margin-top:16px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Статус</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'+statusButtons+'</div>'
+    + '<div style="font-weight:700;font-size:12px;color:#8A968E;margin-bottom:6px;">История изменений</div>'
+    + history
+    + '</div>'
+    + (o.status==='paid' ? '<div style="margin-top:14px;font-size:11.5px;color:#5A8D5F;">✓ покупателю отправлено подтверждение оплаты'+(o.receiptSent?' · ✓ чек отправлен':' · чек ожидает подключения кассы')+'</div>' : '')
+    + '</div>';
+}
+
+function handleAdminOrderStatusChange(orderId, newStatus){
+  const o = state.orders.find(function(x){ return x.id===orderId; });
+  if (!o) return;
+  o.status = newStatus;
+  if (!o.statusHistory) o.statusHistory = [];
+  const a = currentAdmin();
+  o.statusHistory.push({status:newStatus, ts:new Date().toLocaleString('ru-RU'), by:(a?a.name:'админ')});
+  logAdminAction('Изменил статус заказа №'+o.id+' на «'+(ORDER_STATUS_LABELS[newStatus]||newStatus)+'»');
+  pushNotification('Заказ №'+o.id+': '+(ORDER_STATUS_LABELS[newStatus]||newStatus), 'Статус вашего заказа изменён на «'+(ORDER_STATUS_LABELS[newStatus]||newStatus)+'».', {orderId:o.id});
+  saveState();
+  render(true);
+}
+
+function screenAdminCustomers(){
+  const q = (state.adminCustomerQuery||'').toLowerCase();
+  let list = deriveCustomers();
+  if (q) list = list.filter(function(c){ return (c.name||'').toLowerCase().indexOf(q)!==-1 || c.phoneKey.indexOf(q.replace(/\D/g,''))!==-1; });
+  list.sort(function(a,b){ return b.totalSpent-a.totalSpent; });
+
+  return '<div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Клиенты</h2>'
+    + '<input class="field" id="adminCustomerSearch" style="max-width:280px;" placeholder="Поиск по имени или телефону" value="'+(state.adminCustomerQuery||'')+'">'
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">'
+    + (list.length ? list.map(function(c){
+        const blocked = isPhoneBlocked(c.phone);
+        return '<div data-nav="#/admin/customers/'+c.phoneKey+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">'+(c.name||'—')+(blocked?' <span style="color:#C97A5A;font-size:10.5px;">(заблокирован)</span>':'')+'</div><div style="font-size:11.5px;color:#8A968E;">'+c.phone+' · '+(c.marketingConsent?'согласие на рассылку':'без согласия на рассылку')+'</div></div>'
+          + '<div style="text-align:right;"><div style="font-weight:800;font-size:13.5px;">'+formatPrice(c.totalSpent)+'</div><div style="font-size:11px;color:#8A968E;">'+c.ordersCount+' заказ(ов)</div></div>'
+          + '</div>';
+      }).join('') : '<div style="color:#A9A398;font-size:13px;padding:20px 0;text-align:center;">Клиентов не найдено</div>')
+    + '</div></div>';
+}
+
+// В прототипе нет реальной привязки аккаунта к покупателю (нет бэкенда/авторизации), поэтому
+// избранное хранится только для «текущего пользователя приложения» (state.profile). Показываем
+// его в карточке клиента, только если это тот самый профиль — иначе честно говорим об ограничении.
+function adminCustomerFavoritesHTML(customerPhone){
+  const isThisDeviceUser = (state.profile.phone||'').replace(/\D/g,'')===(customerPhone||'').replace(/\D/g,'');
+  if (!isThisDeviceUser){
+    return '<div style="font-size:11.5px;color:#8A968E;margin-bottom:20px;">Избранное этого клиента недоступно в прототипе без бэкенда: сейчас список избранного привязан к устройству, а не к аккаунту покупателя.</div>';
+  }
+  const favProducts = state.products.filter(function(p){ return (state.favorites||[]).indexOf(p.id)!==-1; });
+  return '<div style="margin-bottom:20px;"><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Избранное</div>'
+    + (favProducts.length ? favProducts.map(function(p){ return '<span class="chip" style="margin:0 6px 6px 0;display:inline-block;">'+p.name+'</span>'; }).join('') : '<div style="color:#A9A398;font-size:12.5px;">Пусто</div>')
+    + '</div>';
+}
+
+function screenAdminCustomerDetail(phoneKey){
+  const c = deriveCustomers().find(function(x){ return x.phoneKey===phoneKey; });
+  if (!c) return '<div>Клиент не найден.</div>';
+  const blocked = isPhoneBlocked(c.phone);
+  const orders = state.orders.filter(function(o){ return o.customer && o.customer.phone.replace(/\D/g,'')===phoneKey; }).slice().reverse();
+  return '<div>'
+    + '<div data-nav="#/admin/customers" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← Ко всем клиентам</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 6px;">'+(c.name||'—')+'</h2>'
+    + '<div style="font-size:12.5px;color:#8A968E;margin-bottom:16px;">'+c.phone+' · '+(c.email||'')+' · '+(c.city||'')+'</div>'
+    + '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">'
+    + adminStatCard('Всего заказов', c.ordersCount)
+    + adminStatCard('Сумма покупок', formatPrice(c.totalSpent))
+    + adminStatCard('Рекламная рассылка', c.marketingConsent?'Согласие есть':'Нет согласия')
+    + '</div>'
+    + '<button data-admin-'+(blocked?'unblock':'block')+'-customer="'+c.phone+'" style="padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:700;border:1.5px solid '+(blocked?'#5A8D5F':'#C97A5A')+';background:#fff;color:'+(blocked?'#5A8D5F':'#C97A5A')+';margin-bottom:20px;">'+(blocked?'Разблокировать клиента':'Заблокировать клиента (запретить покупки)')+'</button>'
+    + adminCustomerFavoritesHTML(c.phone)
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">История заказов</div>'
+    + orders.map(function(o){
+        return '<div data-nav="#/admin/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;cursor:pointer;">'
+          + '<span style="font-size:12.5px;">№'+o.id+' · '+o.dateLabel+'</span>'
+          + '<span style="'+(ORDER_STATUS_STYLES[o.status]||'')+'font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;">'+(ORDER_STATUS_LABELS[o.status]||o.status)+'</span>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+}
+
+function handleAdminBlockCustomer(phone, block){
+  const digits = (phone||'').replace(/\D/g,'');
+  if (block){
+    if (state.blockedCustomers.indexOf(digits)===-1) state.blockedCustomers.push(digits);
+    logAdminAction('Заблокировал клиента '+phone);
+  } else {
+    state.blockedCustomers = state.blockedCustomers.filter(function(d){ return d!==digits; });
+    logAdminAction('Разблокировал клиента '+phone);
+  }
+  saveState();
+  render(true);
+}
+
+function screenAdminCatalog(param2){
+  if (param2){
+    const wantId = param2==='new' ? null : param2;
+    if (!state.adminDraft || state.adminDraftType!=='product' || state.adminDraft.__id!==wantId){
+      handleAdminCatalogOpen(wantId);
+    }
+    return screenAdminProductForm();
+  }
+  const list = state.products.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+  return '<div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0;">Каталог</h2>'
+    + '<button data-admin-catalog-new class="primary-btn" style="width:auto;padding:10px 18px;">+ Добавить товар</button>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:10px;">'
+    + list.map(function(p){
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:12px 14px;">'
+          + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">'
+          + '<img src="'+img(p.img)+'" style="width:44px;height:44px;border-radius:9px;object-fit:cover;flex-shrink:0;">'
+          + '<div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:12.5px;">'+p.name+(p.bulk?' <span style="color:#8A968E;font-weight:600;">(большая коробка)</span>':'')+'</div>'
+          + '<div style="font-size:11px;color:#8A968E;">'+formatPrice(p.price)+(p.discountPercent?' <span style="color:#C97A5A;">(скидка '+p.discountPercent+'%, было '+formatPrice(p.basePrice)+')</span>':'')+(p.available===false?' · <span style="color:#C97A5A;">нет в наличии</span>':'')+'</div></div>'
+          + '</div>'
+          + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+          + '<div data-admin-catalog-move="'+p.id+'|up" style="cursor:pointer;width:36px;height:36px;flex-shrink:0;border:1px solid #E4DFD2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;">↑</div>'
+          + '<div data-admin-catalog-move="'+p.id+'|down" style="cursor:pointer;width:36px;height:36px;flex-shrink:0;border:1px solid #E4DFD2;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;">↓</div>'
+          + '<button data-admin-catalog-toggle-available="'+p.id+'" style="flex:1;min-width:96px;font-size:11.5px;padding:10px 10px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">'+(p.available===false?'Вернуть в продажу':'Скрыть')+'</button>'
+          + '<button data-admin-catalog-edit="'+p.id+'" style="flex:1;min-width:96px;font-size:11.5px;padding:10px 10px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Изменить</button>'
+          + (state.adminDeleteConfirm && state.adminDeleteConfirm.type==='product' && state.adminDeleteConfirm.id===p.id
+              ? '<button data-admin-delete-confirm style="flex:1;min-width:96px;font-size:11.5px;padding:10px 10px;min-height:16px;border-radius:8px;border:1px solid #C97A5A;background:#C97A5A;color:#fff;">Точно удалить?</button><button data-admin-delete-cancel style="flex:1;min-width:96px;font-size:11.5px;padding:10px 10px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Отмена</button>'
+              : '<button data-admin-delete-request="product|'+p.id+'" style="flex:1;min-width:96px;font-size:11.5px;padding:10px 10px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;color:#C97A5A;">Удалить</button>')
+          + '</div></div>';
+      }).join('')
+    + '</div></div>';
+}
+
+function screenAdminProductForm(){
+  const d = state.adminDraft || {};
+  const isNew = !d.__id;
+  return '<div style="max-width:520px;">'
+    + '<div data-nav="#/admin/catalog" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К каталогу</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(isNew?'Новый товар':'Редактирование товара')+'</h2>'
+    + adminDraftErrorHTML()
+    + adminInput('name','Название', d.name)
+    + adminSelect('category','Категория', d.category, [{value:'seedling',label:'Сеянец'},{value:'sapling',label:'Саженец Р9'}])
+    + adminInput('latin','Латинское название', d.latin)
+    + adminInput('height','Высота', d.height)
+    + adminInput('basePrice','Цена, ₽', d.basePrice, 'number')
+    + adminInput('discountPercent','Скидка, % (0 — без скидки)', d.discountPercent, 'number')
+    + adminSelect('img','Фото', d.img, PRODUCT_IMAGE_CHOICES.map(function(f){ return {value:f, label:f}; }))
+    + adminTextarea('customDescription','Описание (пусто — стандартный текст для категории)', d.customDescription)
+    + adminCheckboxField('available','В наличии (показывать в каталоге)', d.available!==false)
+    + '<p style="font-size:11px;color:#8A968E;margin:-4px 0 14px;">Загрузка новых фото появится вместе с сервером — пока можно выбрать одно из уже загруженных изображений.</p>'
+    + '<div style="display:flex;gap:10px;margin-top:14px;">'
+    + '<button data-admin-draft-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить</button>'
+    + '<button data-admin-draft-cancel style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>'
+    + '</div></div>';
+}
+
+function handleAdminCatalogOpen(id){
+  if (id){
+    const p = state.products.find(function(x){ return x.id===id; });
+    if (p){ state.adminDraft = Object.assign({}, p, {__id:p.id}); state.adminDraftType = 'product'; }
+  } else {
+    state.adminDraft = { __id:null, name:'', category:'seedling', latin:'', height:'', basePrice:900, discountPercent:0, img:PRODUCT_IMAGE_CHOICES[0], available:true, customDescription:'', pieces:4, unitLabel:'Набор 4 шт' };
+    state.adminDraftType = 'product';
+  }
+  state.adminDraftError = null;
+  saveState();
+}
+
+function handleAdminCatalogMove(id, dir){
+  const list = state.products.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
+  const idx = list.findIndex(function(p){ return p.id===id; });
+  if (idx===-1) return;
+  const swapIdx = dir==='up' ? idx-1 : idx+1;
+  if (swapIdx<0 || swapIdx>=list.length) return;
+  const tmp = list[idx].order; list[idx].order = list[swapIdx].order; list[swapIdx].order = tmp;
+  logAdminAction('Изменил порядок отображения товара «'+list[idx].name+'»');
+  saveState();
+  render(true);
+}
+
+function handleAdminCatalogToggleAvailable(id){
+  const p = state.products.find(function(x){ return x.id===id; });
+  if (!p) return;
+  p.available = p.available===false ? true : false;
+  logAdminAction((p.available?'Вернул в продажу':'Скрыл из каталога')+' товар «'+p.name+'»');
+  saveState();
+  render(true);
+}
+
+function screenAdminPromo(){
+  if (state.adminDraftType==='promo') return screenAdminPromoForm();
+  const list = state.promoCodes;
+  return '<div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h2 class="serif" style="font-size:20px;color:#21362A;margin:0;">Промокоды</h2><button data-admin-promo-new class="primary-btn" style="width:auto;padding:10px 18px;">+ Промокод</button></div>'
+    + list.map(function(p){
+        const expired = p.expiry && new Date(p.expiry) < new Date();
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:800;font-size:14px;">'+p.code+'</div><div style="font-size:11.5px;color:#8A968E;">'+(p.type==='percent'?p.value+'%':formatPrice(p.value))+' · использован '+(p.usedCount||0)+(p.usageLimit!=null?' из '+p.usageLimit:'')+(p.expiry?' · до '+p.expiry:'')+(expired?' · <span style="color:#C97A5A;">истёк</span>':'')+(p.active===false?' · выключен':'')+'</div></div>'
+          + '<div style="display:flex;gap:6px;">'
+          + '<button data-admin-promo-toggle="'+p.code+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">'+(p.active===false?'Включить':'Выключить')+'</button>'
+          + '<button data-admin-promo-edit="'+p.code+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Изменить</button>'
+          + (state.adminDeleteConfirm && state.adminDeleteConfirm.type==='promo' && state.adminDeleteConfirm.id===p.code
+              ? '<button data-admin-delete-confirm style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #C97A5A;background:#C97A5A;color:#fff;">Точно удалить?</button><button data-admin-delete-cancel style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Отмена</button>'
+              : '<button data-admin-delete-request="promo|'+p.code+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;color:#C97A5A;">Удалить</button>')
+          + '</div></div>';
+      }).join('')
+    + '</div>';
+}
+
+function screenAdminPromoForm(){
+  const d = state.adminDraft || {};
+  const isNew = !d.__id;
+  return '<div style="max-width:480px;">'
+    + '<div data-nav="#/admin/promo" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К промокодам</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(isNew?'Новый промокод':'Редактирование промокода')+'</h2>'
+    + adminDraftErrorHTML()
+    + adminInput('code','Код', d.code)
+    + adminSelect('type','Тип скидки', d.type, [{value:'percent',label:'Процент'},{value:'fixed',label:'Фиксированная сумма, ₽'}])
+    + adminInput('value','Размер скидки', d.value, 'number')
+    + adminInput('expiry','Действует до (ГГГГ-ММ-ДД, необязательно)', d.expiry)
+    + adminInput('usageLimit','Лимит использований (пусто — без лимита)', d.usageLimit, 'number')
+    + adminCheckboxField('active','Активен', d.active!==false)
+    + '<div style="display:flex;gap:10px;margin-top:14px;">'
+    + '<button data-admin-draft-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить</button>'
+    + '<button data-admin-draft-cancel style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>'
+    + '</div></div>';
+}
+
+function screenAdminDelivery(){
+  if (state.adminDraftType==='delivery') return screenAdminDeliveryForm();
+  const list = state.deliveryOptions;
+  return '<div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h2 class="serif" style="font-size:20px;color:#21362A;margin:0;">Доставка</h2><button data-admin-delivery-new class="primary-btn" style="width:auto;padding:10px 18px;">+ Способ доставки</button></div>'
+    + list.map(function(d){
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;">'+d.name+'</div><div style="font-size:11.5px;color:#8A968E;">'+d.shortDesc+'</div></div>'
+          + '<div style="display:flex;gap:6px;">'
+          + '<button data-admin-delivery-edit="'+d.id+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Изменить</button>'
+          + (state.adminDeleteConfirm && state.adminDeleteConfirm.type==='delivery' && state.adminDeleteConfirm.id===d.id
+              ? '<button data-admin-delete-confirm style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #C97A5A;background:#C97A5A;color:#fff;">Точно удалить?</button><button data-admin-delete-cancel style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Отмена</button>'
+              : '<button data-admin-delete-request="delivery|'+d.id+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;color:#C97A5A;">Удалить</button>')
+          + '</div></div>';
+      }).join('')
+    + '<div style="margin-top:22px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Города доставки</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">'
+    + state.deliveryZones.map(function(z){ return '<span class="chip active" style="display:inline-flex;align-items:center;gap:2px;">'+z+' <span data-admin-zone-remove="'+z+'" style="cursor:pointer;font-size:15px;padding:8px;margin:-8px -8px -8px 0;line-height:1;">×</span></span>'; }).join('')
+    + '</div>'
+    + '<div style="display:flex;gap:8px;max-width:320px;">'
+    + '<input class="field" id="adminZoneInput" style="margin:0;" placeholder="Новый город">'
+    + '<button data-admin-zone-add style="padding:0 16px;border-radius:12px;border:none;background:#9DC698;color:#21362A;font-weight:700;font-size:12.5px;">Добавить</button>'
+    + '</div>'
+    + '<p style="font-size:11.5px;color:#8A968E;margin-top:14px;">Интеграция с СДЭК API (реальный расчёт ПВЗ и тарифов) будет подключена вместе с сервером.</p>'
+    + '</div>'
+    + '</div>';
+}
+
+function screenAdminDeliveryForm(){
+  const d = state.adminDraft || {};
+  return '<div style="max-width:520px;">'
+    + '<div data-nav="#/admin/delivery" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К доставке</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(d.__id?'Редактирование способа доставки':'Новый способ доставки')+'</h2>'
+    + adminDraftErrorHTML()
+    + adminInput('name','Название', d.name)
+    + adminInput('shortDesc','Краткое описание', d.shortDesc)
+    + adminInput('fullDesc','Полное описание (можно с <br>)', d.fullDesc)
+    + adminInput('minDays','Мин. срок, дней', d.minDays, 'number')
+    + adminInput('maxDays','Макс. срок, дней', d.maxDays, 'number')
+    + '<div style="display:flex;gap:10px;margin-top:14px;">'
+    + '<button data-admin-draft-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить</button>'
+    + '<button data-admin-draft-cancel style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>'
+    + '</div></div>';
+}
+
+function screenAdminBroadcasts(){
+  const draft = state.broadcastDraft || {text:'', audience:'consented'};
+  const customers = deriveCustomers();
+  const recipients = draft.audience==='all' ? customers.length : customers.filter(function(c){ return c.marketingConsent; }).length;
+  const confirming = !!state.adminBroadcastConfirm;
+  return '<div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Рассылки</h2>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;margin-bottom:20px;max-width:520px;">'
+    + '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">Кому отправить</label>'
+    + '<select class="field" style="margin-bottom:0;" data-admin-broadcast-field="audience">'
+    + '<option value="consented"'+(draft.audience==='consented'?' selected':'')+'>Только давшим согласие на рекламу</option>'
+    + '<option value="all"'+(draft.audience==='all'?' selected':'')+'>Всем клиентам</option>'
+    + '</select></div>'
+    + '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">Текст сообщения</label>'
+    + '<textarea class="field" style="margin-bottom:0;min-height:90px;" data-admin-broadcast-field="text">'+(draft.text||'')+'</textarea></div>'
+    + '<div style="font-size:11.5px;color:#8A968E;margin-bottom:12px;">Получат сообщение: <b>'+recipients+'</b> клиент(ов)'+(draft.audience==='all' && customers.some(function(c){ return !c.marketingConsent; }) ? ' — включая тех, кто не давал согласия на рекламу; используйте с осторожностью' : '')+'</div>'
+    + (draft.text ? ('<div style="background:#F3EEE3;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#4A564E;margin-bottom:12px;"><b>Предпросмотр:</b><br>'+draft.text.replace(/\n/g,'<br>')+'</div>') : '')
+    + (confirming
+        ? ('<div style="background:#FFF7E8;border:1px solid #EAD9AE;border-radius:10px;padding:12px 14px;font-size:12.5px;margin-bottom:12px;">Отправить это сообщение '+recipients+' клиент(ам)?</div>'
+           + '<button data-admin-broadcast-confirm class="primary-btn" style="width:auto;padding:11px 18px;margin-right:8px;">Да, отправить</button>'
+           + '<button data-admin-broadcast-cancel style="padding:11px 18px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>')
+        : ('<button data-admin-broadcast-send class="primary-btn" style="width:auto;padding:11px 18px;">Отправить</button>'))
+    + '</div>'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">История рассылок</div>'
+    + (state.broadcasts.length ? state.broadcasts.slice().reverse().map(function(b){
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;"><div style="font-size:11.5px;color:#8A968E;">'+b.ts+' · '+(b.audience==='all'?'всем':'с согласием')+' · получателей: '+b.sentCount+'</div><div style="font-size:12.5px;margin-top:4px;">'+b.text+'</div></div>';
+      }).join('') : '<div style="color:#A9A398;font-size:13px;">Рассылок ещё не было</div>')
+    + '</div>';
+}
+
+function handleAdminBroadcastConfirmSend(){
+  const draft = state.broadcastDraft || {text:'', audience:'consented'};
+  if (!draft.text || !draft.text.trim()) return;
+  const customers = deriveCustomers();
+  const recipients = draft.audience==='all' ? customers.length : customers.filter(function(c){ return c.marketingConsent; }).length;
+  state.broadcasts.push({ id:Date.now(), ts:new Date().toLocaleString('ru-RU'), text:draft.text, audience:draft.audience, sentCount:recipients });
+  logAdminAction('Отправил рассылку ('+(draft.audience==='all'?'всем':'с согласием')+', получателей: '+recipients+')');
+  state.broadcastDraft = {text:'', audience:'consented'};
+  state.adminBroadcastConfirm = false;
+  saveState();
+  render(true);
+}
+
+function screenAdminAnalytics(){
+  const period = state.adminAnalyticsPeriod || 'all';
+  const now = new Date();
+  let from = null, to = null;
+  if (period==='day'){ from = new Date(now); from.setDate(from.getDate()-1); }
+  else if (period==='week'){ from = new Date(now); from.setDate(from.getDate()-7); }
+  else if (period==='month'){ from = new Date(now); from.setMonth(from.getMonth()-1); }
+  else if (period==='custom'){ from = state.adminAnalyticsFrom ? new Date(state.adminAnalyticsFrom) : null; to = state.adminAnalyticsTo ? new Date(state.adminAnalyticsTo) : null; }
+
+  const orders = state.orders.filter(function(o){
+    if (o.status==='pending_payment') return false;
+    if (!o.createdAt) return true;
+    const t = new Date(o.createdAt);
+    if (from && t < from) return false;
+    if (to && t > to) return false;
+    return true;
+  });
+
+  const revenue = orders.reduce(function(s,o){ return s+o.total; },0);
+  const avgCheck = orders.length ? Math.round(revenue/orders.length) : 0;
+  const byProduct = {};
+  orders.forEach(function(o){
+    groupEntries(o.items).forEach(function(g){
+      const p = getProduct(g.productId);
+      if (!p) return;
+      byProduct[p.name] = byProduct[p.name] || {qty:0, revenue:0};
+      byProduct[p.name].qty += g.count;
+      byProduct[p.name].revenue += p.price*g.count;
+    });
+  });
+  const topProducts = Object.keys(byProduct).map(function(k){ return Object.assign({name:k}, byProduct[k]); }).sort(function(a,b){ return b.revenue-a.revenue; });
+
+  const custMap = {};
+  orders.forEach(function(o){ if (o.customer && o.customer.phone){ const k=o.customer.phone.replace(/\D/g,''); custMap[k]=(custMap[k]||0)+1; } });
+  const newCustomers = Object.values(custMap).filter(function(n){ return n===1; }).length;
+  const repeatCustomers = Object.values(custMap).filter(function(n){ return n>1; }).length;
+
+  const byStatus = {};
+  state.orders.forEach(function(o){ byStatus[o.status]=(byStatus[o.status]||0)+1; });
+
+  const periodLabels = {all:'За всё время', day:'День', week:'Неделя', month:'Месяц', custom:'Период'};
+
+  return '<div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Аналитика</h2>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">'
+    + Object.keys(periodLabels).map(function(k){
+        return '<div data-admin-analytics-period="'+k+'" style="padding:11px 15px;min-height:16px;display:flex;align-items:center;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;'+(period===k?'background:#21362A;color:#F3EEE3;':'background:#F3EEE3;color:#4A564E;')+'">'+periodLabels[k]+'</div>';
+      }).join('')
+    + (period==='custom' ? ('<input type="date" id="adminAnalyticsFrom" class="field" style="margin:0;width:auto;" value="'+(state.adminAnalyticsFrom||'')+'"><input type="date" id="adminAnalyticsTo" class="field" style="margin:0;width:auto;" value="'+(state.adminAnalyticsTo||'')+'">') : '')
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px;">'
+    + adminStatCard('Выручка', formatPrice(revenue))
+    + adminStatCard('Заказов', orders.length)
+    + adminStatCard('Средний чек', formatPrice(avgCheck))
+    + adminStatCard('Новые клиенты', newCustomers)
+    + adminStatCard('Повторные клиенты', repeatCustomers)
+    + '</div>'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Продажи по товарам</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:6px 16px;margin-bottom:20px;">'
+    + (topProducts.length ? topProducts.map(function(p){
+        return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:8px 0;border-bottom:1px solid #F0EBDF;"><span>'+p.name+' · '+p.qty+' шт</span><span style="font-weight:700;">'+formatPrice(p.revenue)+'</span></div>';
+      }).join('') : '<div style="color:#A9A398;font-size:12.5px;padding:10px 0;">Нет данных за период</div>')
+    + '</div>'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Заказы по статусам</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;">'
+    + Object.keys(byStatus).map(function(s){ return '<span style="'+(ORDER_STATUS_STYLES[s]||'')+'font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;">'+(ORDER_STATUS_LABELS[s]||s)+': '+byStatus[s]+'</span>'; }).join('')
+    + '</div>'
+    + '</div>';
+}
+
+function adminSettingsInput(field, label, value){
+  return '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">'+label+'</label>'
+    + '<input class="field" style="margin-bottom:0;" data-admin-settings-field="'+field+'" value="'+(value||'').replace(/"/g,'&quot;')+'"></div>';
+}
+function adminSettingsTextarea(field, label, value){
+  return '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">'+label+'</label>'
+    + '<textarea class="field" style="margin-bottom:0;min-height:70px;" data-admin-settings-field="'+field+'">'+(value||'')+'</textarea></div>';
+}
+
+function screenAdminSettings(){
+  const s = state.settings;
+  return '<div style="max-width:560px;">'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Настройки</h2>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;margin-bottom:16px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Контакты компании</div>'
+    + adminSettingsInput('companyName','Название компании', s.companyName)
+    + adminSettingsInput('companyPhone','Телефон', s.companyPhone)
+    + adminSettingsInput('companyEmail','Email', s.companyEmail)
+    + adminSettingsInput('inn','ИНН / реквизиты', s.inn)
+    + '</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;margin-bottom:16px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Юридические документы</div>'
+    + adminSettingsTextarea('privacyText','Политика обработки персональных данных', s.privacyText)
+    + adminSettingsTextarea('offerText','Публичная оферта', s.offerText)
+    + adminSettingsTextarea('consentText','Согласие на обработку персональных данных', s.consentText)
+    + '</div>'
+    + '<button data-admin-settings-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить настройки</button>'
+    + '</div>';
+}
+
+function screenAdminAdmins(){
+  if (state.adminDraftType==='adminAccount') return screenAdminAdminForm();
+  const list = state.admins;
+  return '<div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><h2 class="serif" style="font-size:20px;color:#21362A;margin:0;">Админы</h2><button data-admin-admin-new class="primary-btn" style="width:auto;padding:10px 18px;">+ Добавить админа</button></div>'
+    + list.map(function(a){
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;">'+a.name+(a.active===false?' <span style="color:#C97A5A;font-size:10.5px;">(отключён)</span>':'')+'</div><div style="font-size:11.5px;color:#8A968E;">TG ID '+a.telegramId+' · '+(a.role==='superadmin'?'суперадмин (полный доступ)':'разделы: '+((a.permissions||[]).map(function(k){ return (ADMIN_SECTIONS.find(function(s){ return s.key===k; })||{}).label; }).join(', ')||'нет'))+'</div></div>'
+          + '<div style="display:flex;gap:6px;">'
+          + '<button data-admin-admin-edit="'+a.id+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Изменить</button>'
+          + (a.role!=='superadmin' ? (state.adminDeleteConfirm && state.adminDeleteConfirm.type==='admin' && state.adminDeleteConfirm.id===a.id
+              ? '<button data-admin-delete-confirm style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #C97A5A;background:#C97A5A;color:#fff;">Точно удалить?</button><button data-admin-delete-cancel style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;">Отмена</button>'
+              : '<button data-admin-delete-request="admin|'+a.id+'" style="font-size:11.5px;padding:10px 13px;min-height:16px;border-radius:8px;border:1px solid #E4DFD2;background:#fff;color:#C97A5A;">Удалить</button>') : '')
+          + '</div></div>';
+      }).join('')
+    + '<div style="margin-top:24px;">'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Журнал действий администраторов</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:6px 16px;max-height:320px;overflow-y:auto;">'
+    + (state.adminAuditLog.length ? state.adminAuditLog.map(function(l){
+        return '<div style="font-size:11.5px;color:#4A564E;padding:8px 0;border-bottom:1px solid #F0EBDF;"><b>'+l.adminName+'</b> · '+l.ts+'<br>'+l.action+'</div>';
+      }).join('') : '<div style="color:#A9A398;font-size:12.5px;padding:12px 0;">Журнал пуст</div>')
+    + '</div></div>'
+    + '</div>';
+}
+
+function screenAdminAdminForm(){
+  const d = state.adminDraft || {};
+  return '<div style="max-width:480px;">'
+    + '<div data-nav="#/admin/admins" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К админам</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(d.__id?'Редактирование администратора':'Новый администратор')+'</h2>'
+    + adminDraftErrorHTML()
+    + adminInput('name','Имя', d.name)
+    + adminInput('telegramId','Telegram ID', d.telegramId)
+    + adminSelect('role','Роль', d.role, [{value:'manager',label:'Менеджер (ограниченные права)'},{value:'superadmin',label:'Суперадмин (полный доступ)'}])
+    + (d.role==='superadmin' ? '<p style="font-size:11.5px;color:#8A968E;">Суперадмин всегда имеет доступ ко всем разделам.</p>'
+        : ('<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:6px;">Доступные разделы</label>'
+          + ADMIN_SECTIONS.filter(function(s){ return s.key!=='admins'; }).map(function(s){
+              const checked = (d.permissions||[]).indexOf(s.key)!==-1;
+              return '<div data-admin-perm-toggle="'+s.key+'" style="display:flex;align-items:center;gap:10px;margin-bottom:2px;padding:9px 4px;cursor:pointer;">'+checkboxHTML(checked,'admin-perm-toggle="'+s.key+'"')+'<span style="font-size:12.5px;">'+s.label+'</span></div>';
+            }).join('')
+          + '</div>'))
+    + adminCheckboxField('active','Активен (может входить в панель)', d.active!==false)
+    + '<div style="display:flex;gap:10px;margin-top:14px;">'
+    + '<button data-admin-draft-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить</button>'
+    + '<button data-admin-draft-cancel style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>'
+    + '</div></div>';
+}
+
+function handleAdminLoginSubmit(){
+  const pinEl = document.getElementById('adminPinInput');
+  const pin = pinEl ? pinEl.value : state.adminLoginPin;
+  if (pin===ADMIN_DEMO_PIN){
+    state.admin.loggedIn = true;
+    state.adminLoginError = '';
+    state.adminLoginPin = '';
+    saveState();
+    render(true);
+  } else {
+    state.adminLoginError = 'Неверный PIN';
+    render(true);
+  }
+}
+
+function handleAdminSelectIdentity(id){
+  state.admin.currentAdminId = id;
+  logAdminAction('Вошёл в админ-панель');
+  saveState();
+  go('#/admin/'+(state.adminSection||'orders'));
+}
+
+function handleAdminLogout(){
+  logAdminAction('Вышел из админ-панели');
+  state.admin = {loggedIn:false, currentAdminId:null};
+  saveState();
+  go('#/admin');
+}
+
+function handleAdminDraftCancel(){
+  const wasProduct = state.adminDraftType==='product';
+  state.adminDraft = null;
+  state.adminDraftType = null;
+  state.adminDraftError = null;
+  if (wasProduct) go('#/admin/catalog');
+  else render(true);
+}
+
+function handleAdminDeleteRequest(type, id){ state.adminDeleteConfirm = {type:type, id:id}; render(true); }
+function handleAdminDeleteCancel(){ state.adminDeleteConfirm = null; render(true); }
+
+function handleAdminDeleteConfirm(){
+  const dc = state.adminDeleteConfirm;
+  if (!dc) return;
+  if (dc.type==='product'){
+    const p = state.products.find(function(x){ return x.id===dc.id; });
+    state.products = state.products.filter(function(x){ return x.id!==dc.id; });
+    logAdminAction('Удалил товар «'+(p?p.name:dc.id)+'»');
+  } else if (dc.type==='promo'){
+    state.promoCodes = state.promoCodes.filter(function(x){ return x.code!==dc.id; });
+    logAdminAction('Удалил промокод «'+dc.id+'»');
+  } else if (dc.type==='delivery'){
+    if (state.deliveryOptions.length>1){
+      const d = state.deliveryOptions.find(function(x){ return x.id===dc.id; });
+      state.deliveryOptions = state.deliveryOptions.filter(function(x){ return x.id!==dc.id; });
+      logAdminAction('Удалил способ доставки «'+(d?d.name:dc.id)+'»');
+    }
+  } else if (dc.type==='admin'){
+    const a = state.admins.find(function(x){ return x.id===dc.id; });
+    if (a && a.role!=='superadmin'){
+      state.admins = state.admins.filter(function(x){ return x.id!==dc.id; });
+      logAdminAction('Удалил администратора «'+a.name+'»');
+    }
+  }
+  state.adminDeleteConfirm = null;
+  saveState();
+  render(true);
+}
+
+function handleAdminDraftSave(){
+  if (!state.adminDraft) return;
+  const d = state.adminDraft;
+  if (state.adminDraftType==='product'){
+    if (!d.name || !d.name.trim()){ state.adminDraftError = 'Укажите название товара'; render(true); return; }
+    const basePrice = Number(d.basePrice)||0;
+    const discountPercent = Math.max(0, Math.min(90, Number(d.discountPercent)||0));
+    const price = Math.round(basePrice*(1-discountPercent/100));
+    if (d.__id){
+      const p = state.products.find(function(x){ return x.id===d.__id; });
+      Object.assign(p, { name:d.name, category:d.category, latin:d.latin, height:d.height, basePrice:basePrice, discountPercent:discountPercent, price:price, img:d.img, available:d.available!==false, customDescription:d.customDescription||'' });
+      logAdminAction('Изменил товар «'+p.name+'»');
+    } else {
+      const newId = (d.category==='sapling'?'sapling-custom-':'seed-custom-') + Date.now();
+      const maxOrder = state.products.reduce(function(m,p){ return Math.max(m,p.order||0); },0);
+      state.products.push({ id:newId, category:d.category, filterGroup:d.category, speciesKey:null, name:d.name, latin:d.latin, height:d.height,
+        basePrice:basePrice, discountPercent:discountPercent, price:price,
+        pieces: d.category==='sapling'?1:4, unitLabel: d.category==='sapling'?'1 шт':'Набор 4 шт',
+        img:d.img, available:d.available!==false, order:maxOrder+1, customDescription:d.customDescription||'' });
+      logAdminAction('Добавил новый товар «'+d.name+'»');
+    }
+    state.adminDraft = null; state.adminDraftType = null; state.adminDraftError = null;
+    saveState();
+    go('#/admin/catalog');
+    return;
+  }
+  if (state.adminDraftType==='promo'){
+    if (!d.code || !d.code.trim()){ state.adminDraftError = 'Укажите код промокода'; render(true); return; }
+    const codeUp = d.code.trim().toUpperCase();
+    const value = Number(d.value)||0;
+    const usageLimit = (d.usageLimit===''||d.usageLimit==null) ? null : Number(d.usageLimit);
+    if (d.__id){
+      const p = state.promoCodes.find(function(x){ return x.code===d.__id; });
+      Object.assign(p, {code:codeUp, type:d.type, value:value, expiry:d.expiry||'', usageLimit:usageLimit, active:d.active!==false});
+      logAdminAction('Изменил промокод «'+codeUp+'»');
+    } else {
+      if (state.promoCodes.some(function(x){ return x.code===codeUp; })){ state.adminDraftError = 'Промокод с таким кодом уже существует'; render(true); return; }
+      state.promoCodes.push({code:codeUp, type:d.type||'percent', value:value, expiry:d.expiry||'', usageLimit:usageLimit, usedCount:0, active:true});
+      logAdminAction('Создал промокод «'+codeUp+'»');
+    }
+    state.adminDraft = null; state.adminDraftType = null; state.adminDraftError = null;
+    saveState(); render(true);
+    return;
+  }
+  if (state.adminDraftType==='delivery'){
+    if (!d.name || !d.name.trim()){ state.adminDraftError = 'Укажите название'; render(true); return; }
+    if (d.__id){
+      const opt = state.deliveryOptions.find(function(x){ return x.id===d.__id; });
+      Object.assign(opt, {name:d.name, shortDesc:d.shortDesc, fullDesc:d.fullDesc, minDays:Number(d.minDays)||1, maxDays:Number(d.maxDays)||Number(d.minDays)||1});
+      logAdminAction('Изменил способ доставки «'+opt.name+'»');
+    } else {
+      const newId = 'delivery-'+Date.now();
+      state.deliveryOptions.push({id:newId, name:d.name, shortDesc:d.shortDesc||'', fullDesc:d.fullDesc||'', minDays:Number(d.minDays)||1, maxDays:Number(d.maxDays)||Number(d.minDays)||1});
+      logAdminAction('Добавил способ доставки «'+d.name+'»');
+    }
+    state.adminDraft = null; state.adminDraftType = null; state.adminDraftError = null;
+    saveState(); render(true);
+    return;
+  }
+  if (state.adminDraftType==='adminAccount'){
+    if (!d.name || !d.telegramId){ state.adminDraftError = 'Укажите имя и Telegram ID'; render(true); return; }
+    if (d.__id){
+      const a = state.admins.find(function(x){ return x.id===d.__id; });
+      if (a.role!=='superadmin'){
+        Object.assign(a, {name:d.name, telegramId:d.telegramId, role:d.role, permissions:d.permissions||[], active:d.active!==false});
+      } else {
+        Object.assign(a, {name:d.name, telegramId:d.telegramId, active:d.active!==false});
+      }
+      logAdminAction('Изменил администратора «'+a.name+'»');
+    } else {
+      state.admins.push({ id:'ad'+Date.now(), name:d.name, telegramId:d.telegramId, role:d.role||'manager', permissions:d.permissions||[], active:d.active!==false });
+      logAdminAction('Добавил администратора «'+d.name+'»');
+    }
+    state.adminDraft = null; state.adminDraftType = null; state.adminDraftError = null;
+    saveState(); render(true);
+    return;
+  }
+}
+
+/* ============================== NOTIFICATIONS ============================== */
+
+function pushNotification(title, body, meta){
+  state.notifications.unshift({ id: Date.now()+'-'+Math.random().toString(36).slice(2), title:title, body:body, ts:new Date().toLocaleString('ru-RU'), read:false, orderId:(meta&&meta.orderId)||null });
+  if (state.notifications.length>200) state.notifications.length = 200;
+  sendTelegramMessage(title, body);
+  saveState();
+}
+
+// ---- ТОЧКА ИНТЕГРАЦИИ С TELEGRAM-БОТОМ ----
+// Реальную отправку сообщения в Telegram нельзя сделать из браузерного JS: это требует
+// бот-токена, который нельзя безопасно хранить на клиенте. Сейчас — заглушка-эмуляция;
+// при подключении бэкенда с ботом эта функция должна вызвать Bot API sendMessage.
+function sendTelegramMessage(title, body){
+  console.log('[sendTelegramMessage] заглушка: в Telegram отправлено бы сообщение: '+title+' — '+body);
+  return true;
+}
+
+function screenNotifications(){
+  const list = state.notifications.slice();
+  const anyUnread = list.some(function(n){ return !n.read; });
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Уведомления', '#/profile')
+  + (anyUnread ? '<div data-mark-all-read style="text-align:right;font-size:12px;color:#6B9971;font-weight:700;cursor:pointer;margin:-8px 0 14px;">Отметить всё как прочитанное</div>' : '')
+  + (list.length ? list.map(function(n){
+      return '<div data-open-notification="'+n.id+'" style="background:#fff;border:1.5px solid '+(n.read?'#ECE7DA':'#9DC698')+';border-radius:14px;padding:14px 16px;margin-bottom:10px;cursor:pointer;'+(n.read?'':'background:#F7FBF6;')+'">'
+        + '<div style="display:flex;justify-content:space-between;gap:10px;"><div style="font-weight:700;font-size:13px;color:#21362A;">'+n.title+'</div>'+(n.read?'':'<span style="width:8px;height:8px;border-radius:50%;background:#C97A5A;flex-shrink:0;margin-top:4px;"></span>')+'</div>'
+        + '<div style="font-size:12.5px;color:#4A564E;margin-top:4px;">'+n.body+'</div>'
+        + '<div style="font-size:10.5px;color:#8A968E;margin-top:6px;">'+n.ts+'</div>'
+        + '</div>';
+    }).join('') : '<div style="text-align:center;color:#A9A398;font-size:13px;padding:40px 0;">Пока нет уведомлений</div>')
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function handleOpenNotification(id){
+  const n = state.notifications.find(function(x){ return x.id===id; });
+  if (!n) return;
+  n.read = true;
+  saveState();
+  if (n.orderId) go('#/orders/'+n.orderId);
+  else render(true);
+}
+
+function handleMarkAllNotificationsRead(){
+  state.notifications.forEach(function(n){ n.read = true; });
+  saveState();
+  render(true);
+}
+
+/* ============================== FAVORITES ============================== */
+
+function screenFavorites(){
+  const list = state.products.filter(function(p){ return (state.favorites||[]).indexOf(p.id)!==-1; });
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Избранное', '#/profile')
+  + (list.length ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'+list.map(catalogCardHTML).join('')+'</div>'
+      : '<div style="text-align:center;color:#A9A398;font-size:13px;padding:40px 0;">Пока нет избранных товаров — нажмите на сердечко на карточке товара</div>')
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function handleToggleFavorite(id){
+  const idx = state.favorites.indexOf(id);
+  if (idx===-1) state.favorites.push(id); else state.favorites.splice(idx,1);
+  saveState();
+  render(true);
+}
+
+/* ============================== SUPPORT ============================== */
+
+function screenSupport(){
+  const myPhoneKey = (state.profile.phone||'').replace(/\D/g,'');
+  const myThreads = state.supportThreads.filter(function(t){ return t.customerPhone.replace(/\D/g,'')===myPhoneKey; }).slice().reverse();
+  const draft = state.supportDraft || {text:'', orderId:''};
+  const myOrders = state.orders.filter(function(o){ return o.customer && o.customer.phone.replace(/\D/g,'')===myPhoneKey; });
+
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Поддержка', '#/profile')
+  + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px;margin-bottom:20px;">'
+  + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Написать в поддержку</div>'
+  + (myOrders.length ? ('<select class="field" id="supportOrderSelect"><option value="">Не связано с заказом</option>'+myOrders.map(function(o){ return '<option value="'+o.id+'">Заказ №'+o.id+'</option>'; }).join('')+'</select>') : '')
+  + '<textarea class="field" id="supportMessageInput" style="min-height:80px;" placeholder="Опишите ваш вопрос...">'+(draft.text||'')+'</textarea>'
+  + '<button data-support-send class="primary-btn">Отправить</button>'
+  + '</div>'
+  + (myThreads.length ? myThreads.map(function(t){
+      return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;margin-bottom:10px;">'
+        + '<div style="font-size:11px;color:#8A968E;margin-bottom:6px;">'+(t.orderId?'По заказу №'+t.orderId+' · ':'')+(t.status==='open'?'открыто':'закрыто')+'</div>'
+        + t.messages.map(function(m){
+            return '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:'+(m.from==='admin'?'#5A8D5F':'#21362A')+';">'+(m.from==='admin'?'Поддержка':'Вы')+'</div><div style="font-size:12.5px;color:#4A564E;">'+m.text+'</div></div>';
+          }).join('')
+        + '</div>';
+    }).join('') : '<div style="text-align:center;color:#A9A398;font-size:13px;padding:20px 0;">У вас пока нет обращений</div>')
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function handleSupportSend(){
+  const textEl = document.getElementById('supportMessageInput');
+  const orderEl = document.getElementById('supportOrderSelect');
+  const text = textEl ? textEl.value.trim() : '';
+  if (!text) return;
+  const orderId = orderEl && orderEl.value ? parseInt(orderEl.value,10) : null;
+  const myPhone = state.profile.phone;
+  let thread = state.supportThreads.find(function(t){ return t.customerPhone===myPhone && t.status==='open' && (orderId ? t.orderId===orderId : !t.orderId); });
+  if (!thread){
+    thread = { id:Date.now()+'-'+Math.random().toString(36).slice(2), customerPhone:myPhone, customerName:state.profile.name, orderId:orderId, status:'open', messages:[], adminUnread:true, createdAt:new Date().toISOString() };
+    state.supportThreads.push(thread);
+  }
+  thread.messages.push({from:'customer', text:text, ts:new Date().toLocaleString('ru-RU')});
+  thread.adminUnread = true;
+  thread.lastMessageAt = new Date().toISOString();
+  saveState();
+
+  const relatedOrder = orderId ? state.orders.find(function(x){ return x.id===orderId; }) : null;
+  const orderSummary = relatedOrder ? ('Заказ №'+relatedOrder.id+', '+(relatedOrder.customer?relatedOrder.customer.name:'')+', '+formatPrice(relatedOrder.total)) : '';
+  notifyAdminsNewSupportMessage(thread.customerName, orderSummary, text);
+
+  state.supportDraft = { text:'', orderId:'' };
+  render(true);
+}
+
+// ---- ТОЧКА ИНТЕГРАЦИИ: уведомление всех админов (включая владельца) о новом обращении в поддержку ----
+// Реальная реализация: рассылка сообщения через Telegram Bot API каждому активному администратору.
+// Сейчас — заглушка; в приложении это отражается бейджем "новое" в разделе «Поддержка» админ-панели.
+function notifyAdminsNewSupportMessage(customerName, orderSummary, text){
+  console.log('[notifyAdminsNewSupportMessage] заглушка: всем админам отправлено бы сообщение — '+customerName+(orderSummary?' ('+orderSummary+')':'')+': '+text);
+  return true;
+}
+
+function screenAdminSupport(){
+  const threads = state.supportThreads.slice().sort(function(a,b){ return (b.lastMessageAt||b.createdAt||'').localeCompare(a.lastMessageAt||a.createdAt||''); });
+  return '<div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Поддержка</h2>'
+    + (threads.length ? threads.map(function(t){
+        const last = t.messages[t.messages.length-1];
+        const o = t.orderId ? state.orders.find(function(x){ return x.id===t.orderId; }) : null;
+        return '<div data-nav="#/admin/support/'+t.id+'" style="background:#fff;border:1.5px solid '+(t.adminUnread?'#9DC698':'#ECE7DA')+';border-radius:14px;padding:14px 16px;margin-bottom:8px;cursor:pointer;'+(t.adminUnread?'background:#F7FBF6;':'')+'">'
+          + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div style="font-weight:700;font-size:13px;color:#21362A;">'+t.customerName+' · '+t.customerPhone+'</div>'+(t.adminUnread?'<span style="background:#C97A5A;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">новое</span>':'')+'</div>'
+          + (o ? '<div style="font-size:11px;color:#8A968E;margin-top:4px;">Заказ №'+o.id+' · '+formatPrice(o.total)+'</div>' : '')
+          + '<div style="font-size:12.5px;color:#4A564E;margin-top:6px;">'+(last?last.text:'')+'</div>'
+          + '</div>';
+      }).join('') : '<div style="color:#A9A398;font-size:13px;padding:20px 0;text-align:center;">Обращений пока нет</div>')
+    + '</div>';
+}
+
+function screenAdminSupportThread(threadId){
+  const t = state.supportThreads.find(function(x){ return x.id===threadId; });
+  if (!t) return '<div>Обращение не найдено.</div>';
+  if (t.adminUnread){ t.adminUnread = false; saveState(); }
+  const o = t.orderId ? state.orders.find(function(x){ return x.id===t.orderId; }) : null;
+  return '<div style="max-width:520px;">'
+    + '<div data-nav="#/admin/support" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← Ко всем обращениям</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 6px;">'+t.customerName+'</h2>'
+    + '<div style="font-size:12.5px;color:#8A968E;margin-bottom:16px;">'+t.customerPhone+(o?(' · Заказ №'+o.id+', '+formatPrice(o.total)):'')+'</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;margin-bottom:16px;max-height:360px;overflow-y:auto;">'
+    + t.messages.map(function(m){
+        return '<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:'+(m.from==='admin'?'#5A8D5F':'#21362A')+';">'+(m.from==='admin'?'Поддержка':t.customerName)+' · '+m.ts+'</div><div style="font-size:12.5px;color:#4A564E;margin-top:2px;">'+m.text+'</div></div>';
+      }).join('')
+    + '</div>'
+    + '<textarea class="field" id="adminSupportReplyInput" style="min-height:70px;" placeholder="Ваш ответ..."></textarea>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    + '<button data-admin-support-reply="'+t.id+'" class="primary-btn" style="width:auto;padding:12px 22px;">Ответить</button>'
+    + (t.status==='open' ? '<button data-admin-support-close="'+t.id+'" style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Закрыть обращение</button>'
+        : '<button data-admin-support-reopen="'+t.id+'" style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Открыть заново</button>')
+    + '</div></div>';
+}
+
+function handleAdminSupportReply(threadId){
+  const t = state.supportThreads.find(function(x){ return x.id===threadId; });
+  if (!t) return;
+  const el = document.getElementById('adminSupportReplyInput');
+  const text = el ? el.value.trim() : '';
+  if (!text) return;
+  t.messages.push({from:'admin', text:text, ts:new Date().toLocaleString('ru-RU')});
+  t.lastMessageAt = new Date().toISOString();
+  logAdminAction('Ответил в поддержке клиенту '+t.customerName);
+  pushNotification('Ответ от поддержки', text, {});
+  saveState();
+  render(true);
+}
+
+function handleAdminSupportClose(threadId){
+  const t = state.supportThreads.find(function(x){ return x.id===threadId; });
+  if (!t) return;
+  t.status = 'closed';
+  logAdminAction('Закрыл обращение клиента '+t.customerName);
+  saveState();
+  render(true);
+}
+
+function handleAdminSupportReopen(threadId){
+  const t = state.supportThreads.find(function(x){ return x.id===threadId; });
+  if (!t) return;
+  t.status = 'open';
+  logAdminAction('Переоткрыл обращение клиента '+t.customerName);
+  saveState();
+  render(true);
+}
+
+/* ============================== SAVED ADDRESSES ============================== */
+
+function screenAddresses(){
+  const list = state.savedAddresses;
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Адреса доставки', '#/profile')
+  + (list.length ? list.map(function(a){
+      return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+        + '<div><div style="font-weight:700;font-size:13px;">'+a.label+'</div><div style="font-size:12px;color:#8A968E;margin-top:2px;">'+a.city+', '+a.address+'</div></div>'
+        + '<div data-remove-address="'+a.id+'" style="cursor:pointer;color:#C97A5A;font-size:18px;line-height:1;flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">×</div>'
+        + '</div>';
+    }).join('') : '<div style="text-align:center;color:#A9A398;font-size:13px;padding:20px 0;">Пока нет сохранённых адресов</div>')
+  + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px;margin-top:16px;">'
+  + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Добавить адрес</div>'
+  + '<input class="field" id="newAddrLabel" placeholder="Название (например, «Дом»)">'
+  + '<input class="field" id="newAddrCity" placeholder="Город">'
+  + '<input class="field" id="newAddrAddress" placeholder="Адрес или пункт выдачи">'
+  + '<button data-add-address class="primary-btn">Сохранить адрес</button>'
+  + '</div>'
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function handleAddAddress(){
+  const label = (document.getElementById('newAddrLabel')||{}).value || '';
+  const city = (document.getElementById('newAddrCity')||{}).value || '';
+  const address = (document.getElementById('newAddrAddress')||{}).value || '';
+  if (!city.trim() || !address.trim()) return;
+  state.savedAddresses.push({ id:Date.now()+'-'+Math.random().toString(36).slice(2), label: label.trim()||'Адрес', city:city.trim(), address:address.trim() });
+  saveState();
+  render(true);
+}
+
+function handleRemoveAddress(id){
+  state.savedAddresses = state.savedAddresses.filter(function(a){ return a.id!==id; });
+  saveState();
+  render(true);
+}
+
+function handleUseAddress(id){
+  const a = state.savedAddresses.find(function(x){ return x.id===id; });
+  if (!a) return;
+  state.checkoutForm.city = a.city;
+  state.checkoutForm.address = a.address;
+  saveState();
+  render(true);
+}
+
+/* ============================== APP SETTINGS (THEME) ============================== */
+
+function screenAppSettings(){
+  return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
+  + '<div style="padding:26px 20px 0;">'
+  + partialHeader('Настройки', '#/profile')
+  + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px;">'
+  + '<div style="font-weight:700;font-size:13px;margin-bottom:12px;">Тема приложения</div>'
+  + '<div style="display:flex;gap:10px;">'
+  + '<div data-set-theme="light" style="flex:1;text-align:center;padding:14px;border-radius:12px;border:1.5px solid '+(state.theme!=='dark'?'#21362A':'#E4DFD2')+';background:'+(state.theme!=='dark'?'#21362A':'#fff')+';color:'+(state.theme!=='dark'?'#F3EEE3':'#4A564E')+';font-weight:700;font-size:13px;cursor:pointer;">Светлая</div>'
+  + '<div data-set-theme="dark" style="flex:1;text-align:center;padding:14px;border-radius:12px;border:1.5px solid '+(state.theme==='dark'?'#21362A':'#E4DFD2')+';background:'+(state.theme==='dark'?'#21362A':'#fff')+';color:'+(state.theme==='dark'?'#F3EEE3':'#4A564E')+';font-weight:700;font-size:13px;cursor:pointer;">Тёмная</div>'
+  + '</div>'
+  + '</div>'
+  + '</div></div>'
+  + partialNav('profile');
+}
+
+function handleSetTheme(theme){
+  state.theme = theme;
+  saveState();
+  render(true);
+}
+
+function applyTheme(){
+  const shell = document.getElementById('shell');
+  if (shell) shell.setAttribute('data-theme', state.theme==='dark' ? 'dark' : 'light');
+}
+
+/* ============================== EVENTS ============================== */
+
+document.addEventListener('click', function(e){
+  if (state.sortMenuOpen && !e.target.closest('#sortMenuWrap')){
+    state.sortMenuOpen = false; render(true);
+  }
+
+  const navEl = e.target.closest('[data-nav]');
+  if (navEl){ go(navEl.getAttribute('data-nav')); return; }
+
+  const addUnitEl = e.target.closest('[data-add-unit]');
+  if (addUnitEl){ changeUnits(addUnitEl.getAttribute('data-add-unit'), 1); render(true); return; }
+
+  const subUnitEl = e.target.closest('[data-sub-unit]');
+  if (subUnitEl){ changeUnits(subUnitEl.getAttribute('data-sub-unit'), -1); render(true); return; }
+
+  const qtyAddEl = e.target.closest('[data-product-qty-add]');
+  if (qtyAddEl){ const id=qtyAddEl.getAttribute('data-product-qty-add'); state.productQty=state.productQty||{}; state.productQty[id]=(state.productQty[id]||1)+1; render(true); return; }
+
+  const qtySubEl = e.target.closest('[data-product-qty-sub]');
+  if (qtySubEl){ const id=qtySubEl.getAttribute('data-product-qty-sub'); state.productQty=state.productQty||{}; state.productQty[id]=Math.max(1,(state.productQty[id]||1)-1); render(true); return; }
+
+  const addToBoxEl = e.target.closest('[data-product-add-to-box]');
+  if (addToBoxEl){
+    const id = addToBoxEl.getAttribute('data-product-add-to-box');
+    const qty = (state.productQty && state.productQty[id]) || 1;
+    addUnitsBulk(id, qty);
+    state.productQty[id] = 1;
+    go('#/cart');
+    return;
+  }
+
+  const sortToggleEl = e.target.closest('#sortToggle');
+  if (sortToggleEl){ state.sortMenuOpen = !state.sortMenuOpen; render(true); return; }
+
+  const sortSelectEl = e.target.closest('[data-sort-select]');
+  if (sortSelectEl){
+    state.catalogSort = sortSelectEl.getAttribute('data-sort-select');
+    state.sortMenuOpen = false;
+    saveState(); render(true); return;
+  }
+
+  const boxToggleEl = e.target.closest('[data-box-toggle]');
+  if (boxToggleEl){ state.boxWidgetCollapsed = !state.boxWidgetCollapsed; render(true); return; }
+
+  const boxItemToggleEl = e.target.closest('[data-box-item-toggle]');
+  if (boxItemToggleEl){
+    const idx = boxItemToggleEl.getAttribute('data-box-item-toggle');
+    const isLast = computeBoxes(state.cart).length-1 === Number(idx);
+    if (!state.expandedBoxes) state.expandedBoxes = {};
+    state.expandedBoxes[idx] = !isBoxExpanded(idx, isLast);
+    render(true); return;
+  }
+
+  const removeEntryEl = e.target.closest('[data-remove-entry]');
+  if (removeEntryEl){
+    const uid = Number(removeEntryEl.getAttribute('data-remove-entry'));
+    state.cart = state.cart.filter(function(e2){ return e2.uid!==uid; });
+    saveState(); render(true); return;
+  }
+
+  const bulkSpeciesEl = e.target.closest('[data-bulk-species]');
+  if (bulkSpeciesEl){
+    const parts = bulkSpeciesEl.getAttribute('data-bulk-species').split('|');
+    if (!state.bulkSpecies) state.bulkSpecies = {};
+    state.bulkSpecies[parts[0]] = parts[1];
+    saveState(); render(true); return;
+  }
+
+  const bulkAddEl = e.target.closest('[data-bulk-add-to-box]');
+  if (bulkAddEl){
+    const bulkId = bulkAddEl.getAttribute('data-bulk-add-to-box');
+    const species = (state.bulkSpecies && state.bulkSpecies[bulkId]) || getProduct(bulkId).options[0];
+    addEntry(bulkId, {bulk:true, species:species});
+    saveState();
+    go('#/cart');
+    return;
+  }
+
+  if (e.target.getAttribute && e.target.getAttribute('data-close-doc')!==null){
+    state.openDoc = null; render(true); return;
+  }
+
+  const openDocEl = e.target.closest('[data-open-doc]');
+  if (openDocEl){ state.openDoc = openDocEl.getAttribute('data-open-doc'); render(true); return; }
+
+  const toggleConsentEl = e.target.closest('[data-toggle-consent]');
+  if (toggleConsentEl){
+    const key = toggleConsentEl.getAttribute('data-toggle-consent') + 'Consent';
+    state.checkoutForm[key] = !state.checkoutForm[key];
+    saveState(); render(true); return;
+  }
+
+  const applyPromoEl = e.target.closest('[data-apply-promo]');
+  if (applyPromoEl){ handleApplyPromo(); render(true); return; }
+
+  const checkoutGoEl = e.target.closest('[data-checkout-go]');
+  if (checkoutGoEl){ if (!checkoutGoEl.disabled && canCheckout(state.cart)) go('#/checkout'); return; }
+
+  const submitCheckoutEl = e.target.closest('[data-submit-checkout]');
+  if (submitCheckoutEl){ handleCheckoutSubmit(); return; }
+
+  const selectDeliveryEl = e.target.closest('[data-select-delivery]');
+  if (selectDeliveryEl){ state.checkoutForm.delivery = selectDeliveryEl.getAttribute('data-select-delivery'); saveState(); render(true); return; }
+
+  const confirmDeliveryEl = e.target.closest('[data-confirm-delivery]');
+  if (confirmDeliveryEl){ handleConfirmDelivery(); return; }
+
+  const ordersTabEl = e.target.closest('[data-orders-tab]');
+  if (ordersTabEl){ state.ordersTab = ordersTabEl.getAttribute('data-orders-tab'); render(true); return; }
+});
+
+document.addEventListener('input', function(e){
+  if (e.target.id==='catalogSearch'){
+    state.catalogQuery = e.target.value;
+    const pos = e.target.selectionStart;
+    saveState();
+    render(true);
+    const el = document.getElementById('catalogSearch');
+    if (el){ el.focus(); el.setSelectionRange(pos,pos); }
+    return;
+  }
+  if (e.target.id==='promoInput'){ state.promoInput = e.target.value; return; }
+  if (e.target.id==='phoneField'){
+    const formatted = sanitizePhoneInput(e.target.value);
+    e.target.value = formatted;
+    state.checkoutForm.phone = formatted;
+    saveState();
+    e.target.setSelectionRange(formatted.length, formatted.length);
+    return;
+  }
+  if (e.target.matches('[data-field]')){
+    state.checkoutForm[e.target.getAttribute('data-field')] = e.target.value;
+    saveState();
+    return;
+  }
+});
+
+/* ============================== ADMIN EVENTS ============================== */
+
+document.addEventListener('click', function(e){
+  const loginBtn = e.target.closest('[data-admin-login-submit]');
+  if (loginBtn){ handleAdminLoginSubmit(); return; }
+
+  const identityEl = e.target.closest('[data-admin-select-identity]');
+  if (identityEl){ handleAdminSelectIdentity(identityEl.getAttribute('data-admin-select-identity')); return; }
+
+  const logoutEl = e.target.closest('[data-admin-logout]');
+  if (logoutEl){ handleAdminLogout(); return; }
+
+  const statusEl = e.target.closest('[data-admin-order-status]');
+  if (statusEl){
+    const parts = statusEl.getAttribute('data-admin-order-status').split('|');
+    handleAdminOrderStatusChange(parseInt(parts[0],10), parts[1]);
+    return;
+  }
+
+  const blockEl = e.target.closest('[data-admin-block-customer]');
+  if (blockEl){ handleAdminBlockCustomer(blockEl.getAttribute('data-admin-block-customer'), true); return; }
+  const unblockEl = e.target.closest('[data-admin-unblock-customer]');
+  if (unblockEl){ handleAdminBlockCustomer(unblockEl.getAttribute('data-admin-unblock-customer'), false); return; }
+
+  const catNewEl = e.target.closest('[data-admin-catalog-new]');
+  if (catNewEl){ handleAdminCatalogOpen(null); go('#/admin/catalog/new'); return; }
+  const catEditEl = e.target.closest('[data-admin-catalog-edit]');
+  if (catEditEl){ const id=catEditEl.getAttribute('data-admin-catalog-edit'); handleAdminCatalogOpen(id); go('#/admin/catalog/'+id); return; }
+  const catToggleEl = e.target.closest('[data-admin-catalog-toggle-available]');
+  if (catToggleEl){ handleAdminCatalogToggleAvailable(catToggleEl.getAttribute('data-admin-catalog-toggle-available')); return; }
+  const catMoveEl = e.target.closest('[data-admin-catalog-move]');
+  if (catMoveEl){ const p=catMoveEl.getAttribute('data-admin-catalog-move').split('|'); handleAdminCatalogMove(p[0], p[1]); return; }
+
+  const draftSaveEl = e.target.closest('[data-admin-draft-save]');
+  if (draftSaveEl){ handleAdminDraftSave(); return; }
+  const draftCancelEl = e.target.closest('[data-admin-draft-cancel]');
+  if (draftCancelEl){ handleAdminDraftCancel(); return; }
+
+  const delReqEl = e.target.closest('[data-admin-delete-request]');
+  if (delReqEl){ const p=delReqEl.getAttribute('data-admin-delete-request').split('|'); handleAdminDeleteRequest(p[0], p.slice(1).join('|')); return; }
+  const delConfEl = e.target.closest('[data-admin-delete-confirm]');
+  if (delConfEl){ handleAdminDeleteConfirm(); return; }
+  const delCancelEl = e.target.closest('[data-admin-delete-cancel]');
+  if (delCancelEl){ handleAdminDeleteCancel(); return; }
+
+  const promoNewEl = e.target.closest('[data-admin-promo-new]');
+  if (promoNewEl){ state.adminDraft = {__id:null, code:'', type:'percent', value:10, expiry:'', usageLimit:null, active:true}; state.adminDraftType='promo'; state.adminDraftError=null; render(true); return; }
+  const promoEditEl = e.target.closest('[data-admin-promo-edit]');
+  if (promoEditEl){
+    const code = promoEditEl.getAttribute('data-admin-promo-edit');
+    const p = state.promoCodes.find(function(x){ return x.code===code; });
+    if (p){ state.adminDraft = Object.assign({}, p, {__id:p.code}); state.adminDraftType='promo'; state.adminDraftError=null; render(true); }
+    return;
+  }
+  const promoToggleEl = e.target.closest('[data-admin-promo-toggle]');
+  if (promoToggleEl){
+    const code = promoToggleEl.getAttribute('data-admin-promo-toggle');
+    const p = state.promoCodes.find(function(x){ return x.code===code; });
+    if (p){ p.active = p.active===false ? true : false; logAdminAction((p.active?'Включил':'Выключил')+' промокод «'+p.code+'»'); saveState(); render(true); }
+    return;
+  }
+
+  const delNewEl = e.target.closest('[data-admin-delivery-new]');
+  if (delNewEl){ state.adminDraft = {__id:null, name:'', shortDesc:'', fullDesc:'', minDays:3, maxDays:7}; state.adminDraftType='delivery'; state.adminDraftError=null; render(true); return; }
+  const delEditEl = e.target.closest('[data-admin-delivery-edit]');
+  if (delEditEl){
+    const id = delEditEl.getAttribute('data-admin-delivery-edit');
+    const d = state.deliveryOptions.find(function(x){ return x.id===id; });
+    if (d){ state.adminDraft = Object.assign({}, d, {__id:d.id}); state.adminDraftType='delivery'; state.adminDraftError=null; render(true); }
+    return;
+  }
+
+  const zoneAddEl = e.target.closest('[data-admin-zone-add]');
+  if (zoneAddEl){
+    const inp = document.getElementById('adminZoneInput');
+    const val = inp ? inp.value.trim() : '';
+    if (val && state.deliveryZones.indexOf(val)===-1){ state.deliveryZones.push(val); logAdminAction('Добавил город доставки «'+val+'»'); saveState(); render(true); }
+    return;
+  }
+  const zoneRemEl = e.target.closest('[data-admin-zone-remove]');
+  if (zoneRemEl){
+    const val = zoneRemEl.getAttribute('data-admin-zone-remove');
+    state.deliveryZones = state.deliveryZones.filter(function(z){ return z!==val; });
+    logAdminAction('Удалил город доставки «'+val+'»');
+    saveState(); render(true); return;
+  }
+
+  const analyticsPeriodEl = e.target.closest('[data-admin-analytics-period]');
+  if (analyticsPeriodEl){ state.adminAnalyticsPeriod = analyticsPeriodEl.getAttribute('data-admin-analytics-period'); saveState(); render(true); return; }
+
+  const settingsSaveEl = e.target.closest('[data-admin-settings-save]');
+  if (settingsSaveEl){ logAdminAction('Сохранил настройки магазина'); render(true); return; }
+
+  const adminNewEl = e.target.closest('[data-admin-admin-new]');
+  if (adminNewEl){ state.adminDraft = {__id:null, name:'', telegramId:'', role:'manager', permissions:[], active:true}; state.adminDraftType='adminAccount'; state.adminDraftError=null; render(true); return; }
+  const adminEditEl = e.target.closest('[data-admin-admin-edit]');
+  if (adminEditEl){
+    const id = adminEditEl.getAttribute('data-admin-admin-edit');
+    const a = state.admins.find(function(x){ return x.id===id; });
+    if (a){ state.adminDraft = Object.assign({}, a, {__id:a.id, permissions:(a.permissions||[]).slice()}); state.adminDraftType='adminAccount'; state.adminDraftError=null; render(true); }
+    return;
+  }
+  const permToggleEl = e.target.closest('[data-admin-perm-toggle]');
+  if (permToggleEl && state.adminDraft){
+    const key = permToggleEl.getAttribute('data-admin-perm-toggle');
+    if (!state.adminDraft.permissions) state.adminDraft.permissions = [];
+    const idx = state.adminDraft.permissions.indexOf(key);
+    if (idx===-1) state.adminDraft.permissions.push(key); else state.adminDraft.permissions.splice(idx,1);
+    render(true);
+    return;
+  }
+  const fieldToggleEl = e.target.closest('[data-admin-field-toggle]');
+  if (fieldToggleEl && state.adminDraft){
+    const key = fieldToggleEl.getAttribute('data-admin-field-toggle');
+    state.adminDraft[key] = (state.adminDraft[key]===false) ? true : false;
+    render(true);
+    return;
+  }
+
+  const bSendEl = e.target.closest('[data-admin-broadcast-send]');
+  if (bSendEl){
+    if (state.broadcastDraft && state.broadcastDraft.text && state.broadcastDraft.text.trim()){ state.adminBroadcastConfirm = true; render(true); }
+    return;
+  }
+  const bConfirmEl = e.target.closest('[data-admin-broadcast-confirm]');
+  if (bConfirmEl){ handleAdminBroadcastConfirmSend(); return; }
+  const bCancelEl = e.target.closest('[data-admin-broadcast-cancel]');
+  if (bCancelEl){ state.adminBroadcastConfirm = false; render(true); return; }
+});
+
+document.addEventListener('input', function(e){
+  if (e.target.id==='adminPinInput'){ state.adminLoginPin = e.target.value; return; }
+
+  if (e.target.id==='adminOrderSearch'){
+    state.adminOrderQuery = e.target.value;
+    const pos = e.target.selectionStart;
+    saveState(); render(true);
+    const el = document.getElementById('adminOrderSearch');
+    if (el){ el.focus(); el.setSelectionRange(pos,pos); }
+    return;
+  }
+  if (e.target.id==='adminOrderStatusFilter'){ state.adminOrderStatusFilter = e.target.value; saveState(); render(true); return; }
+  if (e.target.id==='adminCustomerSearch'){
+    state.adminCustomerQuery = e.target.value;
+    const pos = e.target.selectionStart;
+    saveState(); render(true);
+    const el = document.getElementById('adminCustomerSearch');
+    if (el){ el.focus(); el.setSelectionRange(pos,pos); }
+    return;
+  }
+  if (e.target.id==='adminAnalyticsFrom'){ state.adminAnalyticsFrom = e.target.value; saveState(); render(true); return; }
+  if (e.target.id==='adminAnalyticsTo'){ state.adminAnalyticsTo = e.target.value; saveState(); render(true); return; }
+
+  if (e.target.matches('[data-admin-field]') && state.adminDraft){
+    const f = e.target.getAttribute('data-admin-field');
+    let v = e.target.value;
+    if (e.target.getAttribute('data-numeric')!==null) v = v===''?'':Number(v);
+    state.adminDraft[f] = v;
+    saveState();
+    if (e.target.tagName==='SELECT') render(true);
+    return;
+  }
+  if (e.target.matches('[data-admin-settings-field]')){
+    state.settings[e.target.getAttribute('data-admin-settings-field')] = e.target.value;
+    saveState();
+    return;
+  }
+  if (e.target.matches('[data-admin-broadcast-field]')){
+    if (!state.broadcastDraft) state.broadcastDraft = {text:'', audience:'consented'};
+    const f = e.target.getAttribute('data-admin-broadcast-field');
+    state.broadcastDraft[f] = e.target.value;
+    saveState();
+    if (f==='audience') render(true);
+    return;
+  }
+});
+
+/* ============================== NOTIFICATIONS / FAVORITES / SUPPORT / ADDRESSES / THEME EVENTS ============================== */
+
+document.addEventListener('click', function(e){
+  const favEl = e.target.closest('[data-toggle-favorite]');
+  if (favEl){ handleToggleFavorite(favEl.getAttribute('data-toggle-favorite')); return; }
+
+  const openNotifEl = e.target.closest('[data-open-notification]');
+  if (openNotifEl){ handleOpenNotification(openNotifEl.getAttribute('data-open-notification')); return; }
+
+  const markAllEl = e.target.closest('[data-mark-all-read]');
+  if (markAllEl){ handleMarkAllNotificationsRead(); return; }
+
+  const supportSendEl = e.target.closest('[data-support-send]');
+  if (supportSendEl){ handleSupportSend(); return; }
+
+  const supportReplyEl = e.target.closest('[data-admin-support-reply]');
+  if (supportReplyEl){ handleAdminSupportReply(supportReplyEl.getAttribute('data-admin-support-reply')); return; }
+  const supportCloseEl = e.target.closest('[data-admin-support-close]');
+  if (supportCloseEl){ handleAdminSupportClose(supportCloseEl.getAttribute('data-admin-support-close')); return; }
+  const supportReopenEl = e.target.closest('[data-admin-support-reopen]');
+  if (supportReopenEl){ handleAdminSupportReopen(supportReopenEl.getAttribute('data-admin-support-reopen')); return; }
+
+  const addAddrEl = e.target.closest('[data-add-address]');
+  if (addAddrEl){ handleAddAddress(); return; }
+  const removeAddrEl = e.target.closest('[data-remove-address]');
+  if (removeAddrEl){ handleRemoveAddress(removeAddrEl.getAttribute('data-remove-address')); return; }
+  const useAddrEl = e.target.closest('[data-use-address]');
+  if (useAddrEl){ handleUseAddress(useAddrEl.getAttribute('data-use-address')); return; }
+
+  const setThemeEl = e.target.closest('[data-set-theme]');
+  if (setThemeEl){ handleSetTheme(setThemeEl.getAttribute('data-set-theme')); return; }
+});
+
+/* ============================== TELEGRAM WEBAPP ============================== */
+
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+
+function tgInit(){
+  if (!tg) return;
+  try{ tg.ready(); tg.expand(); }catch(e){}
+  try{ tg.setHeaderColor && tg.setHeaderColor('#182A20'); }catch(e){}
+  try{ tg.setBackgroundColor && tg.setBackgroundColor('#FAF7F0'); }catch(e){}
+  if (tg.BackButton){
+    tg.BackButton.onClick(function(){ history.back(); });
+  }
+}
+
+function tgUpdateBackButton(routeName){
+  if (!tg || !tg.BackButton) return;
+  const topLevel = ['home','catalog','cart','profile'];
+  if (topLevel.indexOf(routeName)!==-1) tg.BackButton.hide();
+  else tg.BackButton.show();
+}
+
+/* ============================== INIT ============================== */
+
+tgInit();
+render();
+</script>
+</body>
+</html>
