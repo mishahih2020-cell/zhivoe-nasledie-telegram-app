@@ -11,7 +11,7 @@
 html,body{margin:0;padding:0;}
 body{background:#e9e4d6;font-family:'Jost',sans-serif;color:#22301F;}
 .serif{font-family:'Playfair Display',serif;}
-#shell{max-width:480px;margin:0 auto;background:#FAF7F0;min-height:100vh;position:relative;padding-top:env(safe-area-inset-top, 0px);}
+#shell{max-width:480px;margin:0 auto;background:#FAF7F0;min-height:100vh;position:relative;}
 button{font-family:'Jost',sans-serif;cursor:pointer;}
 input,textarea{font-family:'Jost',sans-serif;}
 .navitem{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;}
@@ -84,7 +84,7 @@ BULK_PRODUCTS.forEach(function(b){ b.img = PRODUCTS.find(function(p){ return p.i
 const ALL_PRODUCTS = PRODUCTS.concat(BULK_PRODUCTS);
 
 const DELIVERY_OPTIONS = [
-  {id:'cdek', name:'СДЭК, пункт выдачи', shortDesc:'По России · 3–7 дней', fullDesc:'Более 20 000 пунктов по России.<br>3–7 дней в зависимости от региона', minDays:3, maxDays:7},
+  {id:'cdek', name:'СДЭК, пункт выдачи', shortDesc:'По России · до 10 дней', fullDesc:'Более 20 000 пунктов по России.<br>Доставка занимает до 10 дней в зависимости от региона', minDays:3, maxDays:10},
   {id:'post', name:'Почта России', shortDesc:'По России · 5–10 дней', fullDesc:'Отделение или курьером почты.<br>5–10 дней в зависимости от региона', minDays:5, maxDays:10},
 ];
 
@@ -766,7 +766,10 @@ function screenHome(){
   + '<div style="flex:1;"><div style="font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#D6B98C;text-transform:uppercase;margin-bottom:8px;">Подарок к заказу</div>'
   + '<div class="serif" style="color:#FAF7F0;font-size:20px;line-height:1.28;margin-bottom:7px;">Сеянец в подарок к каждому заказу</div>'
   + '<div style="color:#9FB09A;font-size:12.5px;line-height:1.5;">Добавим сеянец к вашему заказу бесплатно</div></div>'
-  + '<div class="gift-pulse" style="flex-shrink:0;"><svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#D6B98C" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" style="opacity:0.95;"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg></div></div>'
+  + '<div class="gift-pulse" style="flex-shrink:0;position:relative;width:66px;height:66px;display:flex;align-items:center;justify-content:center;">'
+  + '<div style="position:absolute;width:78px;height:78px;border-radius:50%;background:radial-gradient(circle, rgba(240,201,135,0.45) 0%, rgba(240,201,135,0) 72%);"></div>'
+  + '<svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#F0C987" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" style="position:relative;opacity:1;filter:drop-shadow(0 0 7px rgba(240,201,135,0.6));"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg>'
+  + '</div></div>'
   + '<div data-nav="#/catalog" style="border-radius:20px;overflow:hidden;position:relative;margin-bottom:22px;height:158px;cursor:pointer;">'
   + '<img src="'+img('teplitsa.jpg')+'" style="display:block;width:100%;height:100%;object-fit:cover;object-position:50% 60%;">'
   + '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg, rgba(15,27,20,0.94) 0%, rgba(15,27,20,0.6) 65%, rgba(15,27,20,0) 100%);padding:32px 16px 14px;">'
