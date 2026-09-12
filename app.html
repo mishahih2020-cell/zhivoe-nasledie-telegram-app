@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Живое Наследие</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -11,7 +11,7 @@
 html,body{margin:0;padding:0;}
 body{background:#e9e4d6;font-family:'Jost',sans-serif;color:#22301F;}
 .serif{font-family:'Playfair Display',serif;}
-#shell{max-width:480px;margin:0 auto;background:#FAF7F0;min-height:100vh;position:relative;}
+#shell{max-width:480px;margin:0 auto;background:#FAF7F0;min-height:100vh;position:relative;padding-top:env(safe-area-inset-top, 0px);}
 button{font-family:'Jost',sans-serif;cursor:pointer;}
 input,textarea{font-family:'Jost',sans-serif;}
 .navitem{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:600;}
@@ -29,6 +29,8 @@ input,textarea{font-family:'Jost',sans-serif;}
 .primary-btn{width:100%;background:#9DC698;color:#21362A;border:none;padding:15px;border-radius:14px;font-size:14.5px;font-weight:800;}
 .primary-btn:disabled{background:#D9D2C1;color:#8A968E;cursor:not-allowed;}
 [hidden]{display:none!important;}
+@keyframes giftPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+.gift-pulse{display:inline-flex;animation:giftPulse 1.8s ease-in-out infinite;transform-origin:center;}
 /* Фильтр инверсии применяется не к #shell целиком (иначе он становится "контейнером" для
    всех вложенных position:fixed элементов — таб-бар и т.п. перестают быть закреплены к экрану
    и уезжают при скролле), а к каждому верхнеуровневому блоку внутри #app по отдельности —
@@ -59,6 +61,8 @@ const PRODUCTS = [
   {id:'sapling-sosna-mugus', category:'sapling', speciesKey:'sosna-mugus', name:'Сосна горная «Мугус» Р9', latin:"Pinus mugo 'Mughus'", height:'10–15 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-sosna-mugus.jpg'},
   {id:'sapling-sosna-obyknovennaya', category:'sapling', speciesKey:'sosna-obyknovennaya', name:'Сосна обыкновенная Р9', latin:'Pinus sylvestris', height:'20–45 см', price:800, pieces:1, unitLabel:'1 шт', img:'sapling-sosna-obyknovennaya.jpg'},
 ];
+
+const BESTSELLER_IDS = ['seed-kolyuchaya', 'sapling-kolyuchaya', 'seed-serbskaya', 'sapling-sosna-obyknovennaya'];
 
 const ADULT_PHOTOS = {
   'kolyuchaya': 'adult-kolyuchaya.jpg',
@@ -542,9 +546,17 @@ function render(preserveScroll){
   applyTheme();
   try{ document.title = state.settings.companyName || 'Живое Наследие'; }catch(e){}
   const scrollPos = window.scrollY;
+  // Полоса вкладок админ-панели пересоздаётся при каждом рендере и без этого всегда
+  // "прыгала" обратно в начало — запоминаем, куда её докрутил пользователь, и восстанавливаем.
+  const adminTabsScrollEl = document.getElementById('adminTabsScroll');
+  const adminTabsScrollPos = adminTabsScrollEl ? adminTabsScrollEl.scrollLeft : null;
   document.getElementById('app').innerHTML = html;
   if (preserveScroll) window.scrollTo(0, scrollPos);
   else window.scrollTo(0,0);
+  if (adminTabsScrollPos !== null){
+    const newAdminTabsScrollEl = document.getElementById('adminTabsScroll');
+    if (newAdminTabsScrollEl) newAdminTabsScrollEl.scrollLeft = adminTabsScrollPos;
+  }
   tgUpdateBackButton(name);
   // На случай если Telegram полностью перезагрузит WebView (например, после сворачивания —
   // см. disableVerticalSwipes выше) — запоминаем текущий раздел, чтобы восстановить его при
@@ -622,8 +634,10 @@ function productCardHTML(p){
     : ('<div class="addbtn" data-add-unit="'+p.id+'" style="cursor:pointer;">Добавить '+p.pieces+' шт</div>');
 
   const isFav = (state.favorites||[]).indexOf(p.id)!==-1;
+  const isBestseller = BESTSELLER_IDS.indexOf(p.id)!==-1;
   return '<div class="pcard">'
     + '<div style="height:118px;position:relative;overflow:hidden;cursor:pointer;" data-nav="#/product/'+p.id+'">'
+    + (isBestseller ? '<div style="position:absolute;top:8px;left:8px;z-index:2;background:#21362A;color:#F3EEE3;font-size:8px;font-weight:800;padding:3px 7px;border-radius:999px;">ХИТ ПРОДАЖ</div>' : '')
     + '<img src="'+img(p.img)+'" style="width:100%;height:100%;object-fit:cover;object-position:50% '+(p.category==='seedling'?'30%':'20%')+';">'
     + '<div data-toggle-favorite="'+p.id+'" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;">'+(isFav?ICONS.heartFilled:ICONS.heartOutline)+'</div>'
     + '</div>'
@@ -752,7 +766,7 @@ function screenHome(){
   + '<div style="flex:1;"><div style="font-size:10.5px;font-weight:800;letter-spacing:1.2px;color:#D6B98C;text-transform:uppercase;margin-bottom:8px;">Подарок к заказу</div>'
   + '<div class="serif" style="color:#FAF7F0;font-size:20px;line-height:1.28;margin-bottom:7px;">Сеянец в подарок к каждому заказу</div>'
   + '<div style="color:#9FB09A;font-size:12.5px;line-height:1.5;">Добавим сеянец к вашему заказу бесплатно</div></div>'
-  + '<svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#D6B98C" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" style="flex-shrink:0;opacity:0.95;"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg></div>'
+  + '<div class="gift-pulse" style="flex-shrink:0;"><svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="#D6B98C" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" style="opacity:0.95;"><rect x="4" y="11" width="16" height="9" rx="1"/><path d="M4 14 H20"/><path d="M12 11 V20"/><path d="M12 11 C10 8 7 8.5 7 6.5 C7 5.2 8.2 4.5 9.3 5.2 C10.5 6 11.5 8 12 11 C12.5 8 13.5 6 14.7 5.2 C15.8 4.5 17 5.2 17 6.5 C17 8.5 14 8 12 11 Z"/></svg></div></div>'
   + '<div data-nav="#/catalog" style="border-radius:20px;overflow:hidden;position:relative;margin-bottom:22px;height:158px;cursor:pointer;">'
   + '<img src="'+img('teplitsa.jpg')+'" style="display:block;width:100%;height:100%;object-fit:cover;object-position:50% 60%;">'
   + '<div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(0deg, rgba(15,27,20,0.94) 0%, rgba(15,27,20,0.6) 65%, rgba(15,27,20,0) 100%);padding:32px 16px 14px;">'
@@ -1066,7 +1080,7 @@ function screenSuccess(orderIdParam){
   + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;margin-bottom:8px;"><span>'+pieces+' шт</span><span style="font-weight:700;color:#21362A;">'+formatPrice(order.total)+'</span></div>'
   + '<div style="display:flex;justify-content:space-between;font-size:13px;color:#4A564E;"><span>'+delivery.name+'</span><span>'+order.delivery.dateRange+'</span></div>'
   + '</div>'
-  + '<button data-nav="#/orders/'+order.id+'" class="primary-btn" style="margin-bottom:14px;">Отследить заказ</button>'
+  + '<button data-nav="#/orders/'+order.id+'" class="primary-btn" style="margin-bottom:14px;">Статус заказа</button>'
   + '<div data-nav="#/home" style="font-size:13.5px;color:#6B9971;font-weight:700;cursor:pointer;">На главную</div>'
   + '</div>';
 }
@@ -1363,7 +1377,7 @@ function adminShellHTML(active, bodyHtml){
     + '</div></div>'
     + '<div style="background:#F7E6D3;color:#8A6A3A;font-size:11.5px;padding:8px 20px;">Демо-режим: доступ и права проверяются только в браузере, это не настоящая защита. Реальная авторизация появится вместе с сервером.</div>'
     + '<div style="position:relative;">'
-    + '<div style="display:flex;gap:8px;padding:14px 20px 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;">'+tabs+'</div>'
+    + '<div id="adminTabsScroll" style="display:flex;gap:8px;padding:14px 20px 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;">'+tabs+'</div>'
     + '<div style="position:absolute;top:0;right:0;bottom:6px;width:30px;background:linear-gradient(to right, rgba(250,247,240,0), #FAF7F0 70%);pointer-events:none;"></div>'
     + '</div>'
     + '<div style="padding:12px 20px 60px;">'+bodyHtml+'</div>'
@@ -2342,6 +2356,11 @@ function screenAppSettings(){
   return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
   + '<div style="padding:26px 20px 0;">'
   + partialHeader('Настройки', '#/profile')
+  + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px;margin-bottom:16px;">'
+  + '<div style="font-weight:700;font-size:13px;margin-bottom:12px;">Мои данные</div>'
+  + '<input class="field" id="profileNameField" placeholder="ФИО" value="'+(state.profile.name||'').replace(/"/g,'&quot;')+'">'
+  + '<input class="field" id="profilePhoneField" inputmode="numeric" placeholder="+7 900 000 00 00" value="'+(state.profile.phone||'+7').replace(/"/g,'&quot;')+'" style="margin-bottom:0;">'
+  + '</div>'
   + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:16px;padding:16px;">'
   + '<div style="font-weight:700;font-size:13px;margin-bottom:12px;">Тема приложения</div>'
   + '<div style="display:flex;gap:10px;">'
@@ -2491,6 +2510,19 @@ document.addEventListener('input', function(e){
     const formatted = sanitizePhoneInput(e.target.value);
     e.target.value = formatted;
     state.checkoutForm.phone = formatted;
+    saveState();
+    e.target.setSelectionRange(formatted.length, formatted.length);
+    return;
+  }
+  if (e.target.id==='profileNameField'){
+    state.profile.name = e.target.value;
+    saveState();
+    return;
+  }
+  if (e.target.id==='profilePhoneField'){
+    const formatted = sanitizePhoneInput(e.target.value);
+    e.target.value = formatted;
+    state.profile.phone = formatted;
     saveState();
     e.target.setSelectionRange(formatted.length, formatted.length);
     return;
@@ -2737,6 +2769,10 @@ const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp 
 function tgInit(){
   if (!tg) return;
   try{ tg.ready(); tg.expand(); }catch(e){}
+  // Обычный expand() всё равно оставляет системную шапку Telegram ("мини-приложение" и отступ
+  // сверху) — requestFullscreen() убирает её и разворачивает вебапп на весь экран (Bot API 8.0+;
+  // на старых клиентах метода просто не будет — тогда молча остаётся обычный expand()).
+  try{ tg.requestFullscreen && tg.requestFullscreen(); }catch(e){}
   try{ tg.setHeaderColor && tg.setHeaderColor('#182A20'); }catch(e){}
   try{ tg.setBackgroundColor && tg.setBackgroundColor('#FAF7F0'); }catch(e){}
   // Без этого Telegram интерпретирует свайп вниз (когда контент проскроллен до самого верха)
