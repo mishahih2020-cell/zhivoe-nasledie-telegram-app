@@ -448,6 +448,18 @@ function formatToday(){
   return d.getDate()+' '+MONTHS_RU[d.getMonth()];
 }
 
+// Точная дата и время в московской таймзоне — для админ-панели (заказы должны показывать
+// точное время оформления по МСК, независимо от часового пояса устройства, на котором открыта админка).
+function formatMoscowDateTime(iso){
+  if (!iso) return '—';
+  try{
+    const d = new Date(iso);
+    const datePart = d.toLocaleDateString('ru-RU', {timeZone:'Europe/Moscow', day:'2-digit', month:'2-digit', year:'numeric'});
+    const timePart = d.toLocaleTimeString('ru-RU', {timeZone:'Europe/Moscow', hour:'2-digit', minute:'2-digit'});
+    return datePart+', '+timePart+' МСК';
+  }catch(e){ return '—'; }
+}
+
 // Russian phone mask: always starts with 7, max 11 digits total, grouped as +7 XXX XXX XX XX
 function formatPhoneDigits(digits){
   let out = '+7';
@@ -528,6 +540,7 @@ function render(preserveScroll){
   const shellEl = document.getElementById('shell');
   if (shellEl) shellEl.style.maxWidth = (name==='admin') ? '1040px' : '480px';
   applyTheme();
+  try{ document.title = state.settings.companyName || 'Живое Наследие'; }catch(e){}
   const scrollPos = window.scrollY;
   document.getElementById('app').innerHTML = html;
   if (preserveScroll) window.scrollTo(0, scrollPos);
@@ -726,7 +739,7 @@ function screenHome(){
   + '<div style="position:relative;">'
   + '<div style="display:flex;align-items:center;gap:10px;">'
   + '<div style="width:32px;height:32px;border-radius:50%;border:1px solid rgba(243,238,227,0.35);display:flex;align-items:center;justify-content:center;">'+ICONS.tree+'</div>'
-  + '<div><div style="font-size:13px;letter-spacing:1.5px;color:#F3EEE3;font-weight:700;">ЖИВОЕ НАСЛЕДИЕ</div><div style="font-size:9px;letter-spacing:1.5px;color:#8FA895;">ПИТОМНИК РАСТЕНИЙ</div></div>'
+  + '<div><div style="font-size:13px;letter-spacing:1.5px;color:#F3EEE3;font-weight:700;">'+(state.settings.companyName||'Живое Наследие').toUpperCase()+'</div><div style="font-size:9px;letter-spacing:1.5px;color:#8FA895;">ПИТОМНИК РАСТЕНИЙ</div></div>'
   + '</div>'
   + '<h1 class="serif" style="font-size:41.5px;line-height:1.1;color:#FAF7F0;margin:16px 0 12px;font-weight:600;">От семечка —<br>до вашего сада</h1>'
   + '<p style="font-size:16px;color:#C9D3C5;line-height:1.45;margin:0 0 16px;max-width:305px;">Питомник хвойных в Пермском крае. Выращиваем сеянцы и саженцы, адаптированные к климату России.</p>'
@@ -1245,7 +1258,7 @@ function adminCan(sectionKey){
 
 function logAdminAction(action){
   const a = currentAdmin();
-  state.adminAuditLog.unshift({ id: Date.now()+'-'+Math.random().toString(36).slice(2), ts: new Date().toLocaleString('ru-RU'), adminName: a?a.name:'—', action: action });
+  state.adminAuditLog.unshift({ id: Date.now()+'-'+Math.random().toString(36).slice(2), ts: new Date().toLocaleString('ru-RU'), adminId: a?a.id:null, adminName: a?a.name:'—', action: action });
   if (state.adminAuditLog.length>300) state.adminAuditLog.length = 300;
   saveState();
 }
@@ -1342,7 +1355,7 @@ function adminShellHTML(active, bodyHtml){
   }).join('');
   return '<div style="width:100%;min-height:100vh;background:#FAF7F0;">'
     + '<div style="background:#21362A;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">'
-    + '<div style="color:#F3EEE3;font-weight:800;font-size:14px;letter-spacing:0.5px;">ЖИВОЕ НАСЛЕДИЕ · АДМИН</div>'
+    + '<div style="color:#F3EEE3;font-weight:800;font-size:14px;letter-spacing:0.5px;">'+(state.settings.companyName||'Живое Наследие').toUpperCase()+' · АДМИН</div>'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
     + '<span style="color:#B9D6B4;font-size:12px;">'+(a?a.name+' · '+(a.role==='superadmin'?'суперадмин':'менеджер'):'')+'</span>'
     + '<button data-admin-logout style="background:transparent;border:1px solid rgba(243,238,227,0.4);color:#F3EEE3;padding:10px 14px;border-radius:9px;font-size:11.5px;font-weight:700;min-height:20px;">Выйти</button>'
@@ -1405,7 +1418,7 @@ function screenAdminOrders(){
     + (list.length ? list.map(function(o){
         const c = o.customer || {};
         return '<div data-nav="#/admin/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap;">'
-          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">Заказ №'+o.id+' · '+(c.name||'—')+'</div><div style="font-size:11.5px;color:#8A968E;">'+o.dateLabel+' · '+(c.phone||'')+'</div></div>'
+          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">Заказ №'+o.id+' · '+(c.name||'—')+'</div><div style="font-size:11.5px;color:#8A968E;">'+formatMoscowDateTime(o.createdAt)+' · '+(c.phone||'')+'</div></div>'
           + '<div style="display:flex;align-items:center;gap:10px;"><span style="'+(ORDER_STATUS_STYLES[o.status]||'')+'font-size:10.5px;font-weight:700;padding:5px 11px;border-radius:999px;">'+(ORDER_STATUS_LABELS[o.status]||o.status)+'</span><span style="font-weight:800;font-size:13.5px;">'+formatPrice(o.total)+'</span></div>'
           + '</div>';
       }).join('') : '<div style="color:#A9A398;font-size:13px;padding:20px 0;text-align:center;">Заказов не найдено</div>')
@@ -1434,7 +1447,8 @@ function screenAdminOrderDetail(idParam){
 
   return '<div>'
     + '<div data-nav="#/admin/orders" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 8px -4px;">← Ко всем заказам</div>'
-    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Заказ №'+o.id+'</h2>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 4px;">Заказ №'+o.id+'</h2>'
+    + '<div style="font-size:12px;color:#8A968E;margin-bottom:14px;">Оформлен: '+formatMoscowDateTime(o.createdAt)+'</div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">'
     + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:16px;">'
     + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Клиент</div>'
@@ -1522,7 +1536,7 @@ function screenAdminCustomerDetail(phoneKey){
     + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">История заказов</div>'
     + orders.map(function(o){
         return '<div data-nav="#/admin/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;cursor:pointer;">'
-          + '<span style="font-size:12.5px;">№'+o.id+' · '+o.dateLabel+'</span>'
+          + '<span style="font-size:12.5px;">№'+o.id+' · '+formatMoscowDateTime(o.createdAt)+'</span>'
           + '<span style="'+(ORDER_STATUS_STYLES[o.status]||'')+'font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;">'+(ORDER_STATUS_LABELS[o.status]||o.status)+'</span>'
           + '</div>';
       }).join('')
@@ -1657,7 +1671,7 @@ function screenAdminPromoForm(){
   const d = state.adminDraft || {};
   const isNew = !d.__id;
   return '<div style="max-width:480px;">'
-    + '<div data-nav="#/admin/promo" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К промокодам</div>'
+    + '<div data-admin-draft-cancel style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К промокодам</div>'
     + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(isNew?'Новый промокод':'Редактирование промокода')+'</h2>'
     + adminDraftErrorHTML()
     + adminInput('code','Код', d.code)
@@ -1704,7 +1718,7 @@ function screenAdminDelivery(){
 function screenAdminDeliveryForm(){
   const d = state.adminDraft || {};
   return '<div style="max-width:520px;">'
-    + '<div data-nav="#/admin/delivery" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К доставке</div>'
+    + '<div data-admin-draft-cancel style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К доставке</div>'
     + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(d.__id?'Редактирование способа доставки':'Новый способ доставки')+'</h2>'
     + adminDraftErrorHTML()
     + adminInput('name','Название', d.name)
@@ -1889,7 +1903,7 @@ function screenAdminAdmins(){
 function screenAdminAdminForm(){
   const d = state.adminDraft || {};
   return '<div style="max-width:480px;">'
-    + '<div data-nav="#/admin/admins" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К админам</div>'
+    + '<div data-admin-draft-cancel style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← К админам</div>'
     + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">'+(d.__id?'Редактирование администратора':'Новый администратор')+'</h2>'
     + adminDraftErrorHTML()
     + adminInput('name','Имя', d.name)
@@ -1903,9 +1917,22 @@ function screenAdminAdminForm(){
             }).join('')
           + '</div>'))
     + adminCheckboxField('active','Активен (может входить в панель)', d.active!==false)
-    + '<div style="display:flex;gap:10px;margin-top:14px;">'
+    + '<div style="display:flex;gap:10px;margin-top:14px;margin-bottom:24px;">'
     + '<button data-admin-draft-save class="primary-btn" style="width:auto;padding:12px 22px;">Сохранить</button>'
     + '<button data-admin-draft-cancel style="padding:12px 22px;border-radius:12px;border:1.5px solid #E4DFD2;background:#fff;font-size:13px;font-weight:700;">Отмена</button>'
+    + '</div>'
+    + (d.__id ? adminPersonalAuditLogHTML(d.__id, d.name) : '')
+    + '</div>';
+}
+
+function adminPersonalAuditLogHTML(adminId, adminName){
+  const entries = state.adminAuditLog.filter(function(l){ return l.adminId===adminId; });
+  return '<div>'
+    + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">Журнал действий: '+(adminName||'')+'</div>'
+    + '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:6px 16px;max-height:280px;overflow-y:auto;">'
+    + (entries.length ? entries.map(function(l){
+        return '<div style="font-size:11.5px;color:#4A564E;padding:8px 0;border-bottom:1px solid #F0EBDF;">'+l.ts+'<br>'+l.action+'</div>';
+      }).join('') : '<div style="color:#A9A398;font-size:12.5px;padding:12px 0;">У этого администратора пока нет действий в журнале (учитываются только действия, совершённые после включения персонального журнала)</div>')
     + '</div></div>';
 }
 
@@ -2638,8 +2665,17 @@ document.addEventListener('input', function(e){
     return;
   }
   if (e.target.matches('[data-admin-settings-field]')){
-    state.settings[e.target.getAttribute('data-admin-settings-field')] = e.target.value;
+    const f = e.target.getAttribute('data-admin-settings-field');
+    state.settings[f] = e.target.value;
     saveState();
+    // Название компании видно в шапке админ-панели прямо на этом же экране — перерисовываем
+    // сразу, иначе выглядит так, будто изменение ни на что не повлияло, пока не уйдёшь со страницы.
+    if (f==='companyName'){
+      const pos = e.target.selectionStart;
+      render(true);
+      const el = document.querySelector('[data-admin-settings-field="companyName"]');
+      if (el){ el.focus(); el.setSelectionRange(pos,pos); }
+    }
     return;
   }
   if (e.target.matches('[data-admin-broadcast-field]')){
@@ -2649,6 +2685,15 @@ document.addEventListener('input', function(e){
     saveState();
     if (f==='audience') render(true);
     return;
+  }
+});
+
+// Некоторые WebView (в частности старые версии WebKit на iOS) не всегда генерируют событие
+// 'input' для <select> — только 'change'. Подстраховываемся: любое 'change' на select
+// синтетически повторяет 'input', чтобы вся логика выше сработала независимо от движка.
+document.addEventListener('change', function(e){
+  if (e.target.tagName==='SELECT'){
+    e.target.dispatchEvent(new Event('input', {bubbles:true}));
   }
 });
 
