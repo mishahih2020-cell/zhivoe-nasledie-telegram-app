@@ -12,6 +12,10 @@ const imageFiles = [
   'sapling-el-sibirskaya.jpg', 'sapling-sosna-mugus.jpg', 'sapling-sosna-obyknovennaya.jpg',
   'adult-kolyuchaya.jpg', 'adult-serbskaya.jpg', 'adult-ayanskaya.jpg', 'adult-sibirskaya.jpg',
   'adult-sosna-mugus.jpg', 'adult-sosna-pumilio.jpg', 'adult-sosna-obyknovennaya.jpg',
+  'raw-seed-kolyuchaya.jpg', 'raw-seed-serbskaya.jpg', 'raw-seed-ayanskaya.jpg', 'raw-seed-sibirskaya.jpg',
+  'raw-seed-sosna-mugus.jpg', 'raw-seed-sosna-pumilio.jpg',
+  'raw-sapling-kolyuchaya.jpg', 'raw-sapling-serbskaya.jpg', 'raw-sapling-ayanskaya.jpg', 'raw-sapling-sibirskaya.jpg',
+  'raw-sapling-sosna-mugus.jpg', 'raw-sapling-sosna-obyknovennaya.jpg',
 ];
 
 const imagesObj = {};
