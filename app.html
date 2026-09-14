@@ -147,60 +147,113 @@ const ADMIN_SECTIONS = [
   {key:'settings', label:'Настройки'},
   {key:'admins', label:'Админы'},
 ];
-const ADMIN_DEMO_PIN = '2606'; // демо-PIN, не является реальной защитой
+/* ---- КЛИЕНТ РЕАЛЬНОГО СЕРВЕРА ----
+   Локально (file://, при разработке/тестах) ходим на сервер по http+IP, потому что
+   mixed-content блокировка браузера действует только для страниц, открытых по https.
+   В реальном Telegram-приложении (страница открыта по https с GitHub Pages) обязателен
+   https-адрес сервера, иначе браузер молча заблокирует все запросы. */
+const API_BASE = (location.protocol === 'file:') ? 'http://80.68.156.229' : 'https://pitomniknasledie.ru';
 
-// ---- ТОЧКА ИНТЕГРАЦИИ С БАНКОМ / ККТ ----
-// Сейчас всё ниже — рабочая заглушка (эмуляция мгновенного успеха).
-// После подключения банка confirmPayment() будет вызываться не сразу в handleConfirmDelivery,
-// а из реального колбэка/вебхука об успешной оплате — сама функция и её эффекты менять не придётся.
-const INTEGRATIONS = {
-  sellerWebhookUrl: null,       // URL для уведомления продавца (Telegram-бот/CRM), пока не подключён
-  receiptProviderReady: false,  // онлайн-касса (54-ФЗ) ещё не подключена — чек не формируется
-};
+let apiToken = null;
+try{ apiToken = sessionStorage.getItem('zn_api_token') || null; }catch(e){}
+let apiRole = null;      // 'customer' | 'admin' | null (пока не авторизованы)
+let apiIdentity = null;  // {id, name, role, permissions} для админа, {id} для покупателя
 
-function notifySeller(order){
-  // Реальная реализация: fetch(INTEGRATIONS.sellerWebhookUrl, {method:'POST', body: JSON.stringify(order)})
-  if (!INTEGRATIONS.sellerWebhookUrl){
-    console.log('[notifySeller] заглушка: продавец уведомлён о заказе №'+order.id);
-    return true;
+async function apiFetch(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers||{});
+  if (opts.body && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+  if (apiToken) headers['Authorization'] = 'Bearer ' + apiToken;
+  const res = await fetch(API_BASE + path, Object.assign({}, opts, {
+    headers: headers,
+    body: opts.body && !(opts.body instanceof FormData) && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body,
+  }));
+  let body = null;
+  try{ body = await res.json(); }catch(e){}
+  if (!res.ok){
+    const err = new Error((body && body.error) || ('http_'+res.status));
+    err.status = res.status;
+    err.body = body;
+    throw err;
   }
-  return true;
+  return body;
 }
 
-function sendBuyerPaymentConfirmation(order){
-  // Реальная реализация: отправка сообщения через Telegram Bot API покупателю (order.telegramUserId)
-  console.log('[sendBuyerPaymentConfirmation] покупателю отправлено подтверждение оплаты по заказу №'+order.id);
-  return true;
+// Обмен Telegram initData на серверную сессию. Возвращает роль ('customer'|'admin') или
+// null, если Telegram initData недоступна (например открыли файл напрямую в браузере).
+async function authenticateWithBackend(){
+  const initData = tg ? tg.initData : '';
+  if (!initData){
+    console.warn('[auth] нет tg.initData — вероятно, открыто не из Telegram');
+    return null;
+  }
+  try{
+    const result = await apiFetch('/api/auth/telegram', { method:'POST', body:{initData: initData} });
+    apiToken = result.token;
+    apiRole = result.role;
+    apiIdentity = result.role==='admin' ? result.admin : result.customer;
+    try{ sessionStorage.setItem('zn_api_token', apiToken); }catch(e){}
+    return apiRole;
+  }catch(e){
+    console.error('[auth] не удалось авторизоваться на сервере', e);
+    apiToken = null; apiRole = null; apiIdentity = null;
+    try{ sessionStorage.removeItem('zn_api_token'); }catch(e2){}
+    return null;
+  }
 }
 
-function maybeSendReceipt(order){
-  // Чек формируется только если подключена онлайн-касса (54-ФЗ). Пока — нет.
-  if (!INTEGRATIONS.receiptProviderReady) return false;
-  console.log('[maybeSendReceipt] чек по заказу №'+order.id+' отправлен на '+order.email);
-  return true;
-}
-
-// Единая точка обработки успешной оплаты — вызывается один раз на заказ.
-function confirmPayment(orderId, paymentPayload){
-  const order = state.orders.find(function(o){ return o.id===orderId; });
-  if (!order) return false;
-  if (order.status==='paid' || order.status==='processing' || order.status==='delivered') return true; // защита от повторного вызова (идемпотентность вебхука)
-
-  order.status = 'paid';
-  order.paidAt = formatToday();
-  order.payment = {
-    provider: (paymentPayload && paymentPayload.provider) || 'mock',
-    transactionId: (paymentPayload && paymentPayload.transactionId) || ('MOCK-'+order.id),
-  };
-  if (!order.statusHistory) order.statusHistory = [];
-  order.statusHistory.push({status:'paid', ts:formatToday(), by:'система (оплата)'});
-  saveState(); // сохранить заказ
-
-  order.sellerNotified = notifySeller(order);
-  order.buyerConfirmationSent = sendBuyerPaymentConfirmation(order);
-  order.receiptSent = maybeSendReceipt(order);
-  saveState();
-  return true;
+// Товар с сервера накладывается поверх локального "шаблона" (фото, латинское название,
+// текст ухода — этого на сервере нет и не должно быть, см. план миграции), поэтому фото и
+// описания видов остаются как есть, а цена/наличие/скидка/порядок берутся с сервера.
+async function loadCatalogFromApi(){
+  try{
+    const [productsRes, deliveryRes, settingsRes] = await Promise.all([
+      apiFetch('/api/catalog/products'),
+      apiFetch('/api/catalog/delivery-options'),
+      apiFetch('/api/catalog/settings/public'),
+    ]);
+    const templateById = {};
+    ALL_PRODUCTS.forEach(function(p){ templateById[p.id] = p; });
+    state.products = productsRes.products.map(function(apiP){
+      const tpl = templateById[apiP.id] || {};
+      return Object.assign({}, tpl, {
+        id: apiP.id,
+        category: apiP.category,
+        speciesKey: tpl.speciesKey || apiP.species_key || null,
+        name: apiP.name,
+        latin: tpl.latin || apiP.latin_name || '',
+        height: tpl.height || apiP.height || '',
+        price: Number(apiP.price),
+        basePrice: Number(apiP.base_price),
+        discountPercent: apiP.discount_percent,
+        unitLabel: apiP.unit_label || tpl.unitLabel,
+        available: apiP.available,
+        order: apiP.sort_order,
+        customDescription: apiP.custom_description || '',
+        bulk: apiP.bulk,
+        filterGroup: apiP.filter_group,
+        img: tpl.img || 'seed-el-kolyuchaya.jpg',
+        options: apiP.bulk ? apiP.options : undefined,
+      });
+    });
+    state.deliveryOptions = deliveryRes.deliveryOptions.map(function(d){
+      return { id:d.id, name:d.name, shortDesc:d.short_desc, fullDesc:d.full_desc, minDays:d.min_days, maxDays:d.max_days };
+    });
+    if (settingsRes.settings){
+      state.settings = Object.assign({}, state.settings, {
+        companyName: settingsRes.settings.company_name || state.settings.companyName,
+        companyPhone: settingsRes.settings.company_phone || state.settings.companyPhone,
+        companyEmail: settingsRes.settings.company_email || state.settings.companyEmail,
+        privacyText: settingsRes.settings.privacy_text || state.settings.privacyText,
+        offerText: settingsRes.settings.offer_text || state.settings.offerText,
+        consentText: settingsRes.settings.consent_text || state.settings.consentText,
+      });
+    }
+  }catch(e){
+    console.error('[catalog] не удалось загрузить каталог с сервера, показаны локальные данные', e);
+  }
+  state.catalogLoaded = true;
+  render(true);
 }
 
 const LEGAL_DOCS = {
@@ -411,7 +464,6 @@ function defaultState(){
     savedAddresses: [],
     theme: 'light',
 
-    admin: { loggedIn:false, currentAdminId:null },
     adminSection: 'orders',
     adminOrderQuery: '',
     adminOrderStatusFilter: 'all',
@@ -644,7 +696,107 @@ function validateContact(form){
   return errors;
 }
 
-function cartToOrderItems(cart){ return cart.map(function(e){ return {productId:e.productId, bulk:!!e.bulk, species:e.species}; }); }
+function formatDateLabel(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.getDate()+' '+MONTHS_RU[d.getMonth()];
+}
+
+// Переводит форму заказа с сервера (snake_case, товары уже сгруппированы с quantity)
+// обратно в старую клиентскую форму (один элемент items на единицу товара), чтобы весь
+// существующий код отрисовки заказов (groupEntries, cartTotalPieces и т.д.) остался без изменений.
+function adaptApiOrder(o){
+  const items = [];
+  (o.items||[]).forEach(function(it){
+    for (let i=0;i<it.quantity;i++) items.push({productId:it.product_id, bulk:it.bulk, species:it.species_product_id});
+  });
+  return {
+    id: o.id,
+    dateLabel: formatDateLabel(o.created_at),
+    createdAt: o.created_at,
+    status: o.status,
+    email: o.customer_email_snapshot,
+    items: items,
+    total: Number(o.total),
+    delivery: { id:o.delivery_option_id, dateRange:o.delivery_date_range },
+    trackingNumber: o.tracking_number,
+    comment: o.comment,
+    customer: {
+      name:o.customer_name_snapshot, phone:o.customer_phone_snapshot, email:o.customer_email_snapshot,
+      city:o.customer_city_snapshot, address:o.customer_address_snapshot, marketingConsent:o.marketing_consent_snapshot,
+    },
+    statusHistory: (o.statusHistory||[]).map(function(h){ return {status:h.status, ts:formatMoscowDateTime(h.changed_at), by:h.changed_by_label}; }),
+    // реальный чек появится только после подключения онлайн-кассы (см. INTEGRATIONS-заглушку раньше) —
+    // подтверждение оплаты покупателю реально отправляется через notifyCustomer в тот же момент, что и смена статуса
+    buyerConfirmationSent: o.status==='paid',
+    receiptSent: false,
+  };
+}
+
+async function loadMyOrders(force){
+  if (state.myOrdersLoaded && !force) return;
+  try{
+    const result = await apiFetch('/api/orders/mine');
+    state.orders = result.orders.map(adaptApiOrder);
+    state.myOrdersLoaded = true;
+    render(true);
+  }catch(e){ console.error('[orders] не удалось загрузить список заказов', e); }
+}
+
+async function loadOrderDetail(id){
+  if (state.orderDetailLoading && state.orderDetailLoading[id]) return;
+  state.orderDetailLoading = state.orderDetailLoading || {};
+  state.orderDetailLoading[id] = true;
+  try{
+    const result = await apiFetch('/api/orders/'+id);
+    state.orderDetailCache = state.orderDetailCache || {};
+    state.orderDetailCache[id] = adaptApiOrder(result.order);
+    render(true);
+  }catch(e){
+    console.error('[orders] не удалось загрузить заказ №'+id, e);
+  }finally{
+    state.orderDetailLoading[id] = false;
+  }
+}
+
+async function loadAdminOrders(force){
+  if (state.adminOrdersLoaded && !force) return;
+  try{
+    const result = await apiFetch('/api/admin/orders');
+    state.adminOrders = result.orders.map(adaptApiOrder);
+    state.adminOrdersLoaded = true;
+    render(true);
+  }catch(e){ console.error('[admin orders] не удалось загрузить', e); }
+}
+
+async function loadAdminOrderDetail(id){
+  if (state.adminOrderDetailLoading && state.adminOrderDetailLoading[id]) return;
+  state.adminOrderDetailLoading = state.adminOrderDetailLoading || {};
+  state.adminOrderDetailLoading[id] = true;
+  try{
+    const result = await apiFetch('/api/admin/orders/'+id);
+    state.adminOrderDetailCache = state.adminOrderDetailCache || {};
+    state.adminOrderDetailCache[id] = adaptApiOrder(result.order);
+    render(true);
+  }catch(e){ console.error('[admin orders] не удалось загрузить заказ №'+id, e); }
+  finally{ state.adminOrderDetailLoading[id] = false; }
+}
+
+function getCachedAdminOrder(id){
+  const cached = state.adminOrderDetailCache && state.adminOrderDetailCache[id];
+  if (cached) return cached;
+  loadAdminOrderDetail(id);
+  return null;
+}
+
+function getCachedOrder(id){
+  const fromDetail = state.orderDetailCache && state.orderDetailCache[id];
+  if (fromDetail) return fromDetail;
+  const fromList = (state.orders||[]).find(function(o){ return o.id===id; });
+  if (fromList) return fromList;
+  loadOrderDetail(id);
+  return null;
+}
 
 /* ============================== ROUTER ============================== */
 
@@ -887,6 +1039,10 @@ function boxWidgetHTML(activeCategory){
 }
 
 /* ============================== SCREENS ============================== */
+
+function screenLoadingPlaceholder(){
+  return '<div style="width:100%;min-height:60vh;display:flex;align-items:center;justify-content:center;color:#A9A398;font-size:13px;">Загрузка…</div>';
+}
 
 function screenHome(){
   return ''
@@ -1208,15 +1364,16 @@ function screenDelivery(){
         + '</div><div style="font-size:13px;font-weight:700;color:#6B9971;white-space:nowrap;">Бесплатно</div></div></div>';
     }).join('')
   + '<div style="background:#EFE9DA;border-left:3px solid #D6B98C;border-radius:12px;padding:14px 16px;font-size:12.5px;color:#5A5346;line-height:1.6;margin-top:6px;">Саженцы с закрытой корневой системой (в контейнере) переносят доставку в любое время года без потерь.</div>'
+  + (state.checkoutErrors && state.checkoutErrors.submit ? '<div class="errtext" style="margin-top:12px;">'+state.checkoutErrors.submit+'</div>' : '')
   + '</div></div>'
   + '<div style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#fff;border-top:1px solid #ECE7DA;padding:14px 20px 22px;z-index:50;">'
-  + '<button data-confirm-delivery class="primary-btn">Продолжить</button></div>';
+  + '<button data-confirm-delivery class="primary-btn"'+(state.checkoutSubmitting?' disabled':'')+'>'+(state.checkoutSubmitting?'Оформляем…':'Продолжить')+'</button></div>';
 }
 
 function screenSuccess(orderIdParam){
   const orderId = parseInt(orderIdParam,10);
-  const order = state.orders.find(o=>o.id===orderId);
-  if (!order){ go('#/home'); return ''; }
+  const order = getCachedOrder(orderId);
+  if (!order) return screenLoadingPlaceholder();
   const pieces = cartTotalPieces(order.items);
   const delivery = state.deliveryOptions.find(d=>d.id===order.delivery.id) || state.deliveryOptions[0];
 
@@ -1250,8 +1407,12 @@ function screenProfile(){
     {label:'Уведомления', route:'#/notifications', icon:'<path d="M6 9 C6 5.7 8.7 3 12 3 C15.3 3 18 5.7 18 9 C18 14 20 15 20 16 H4 C4 15 6 14 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/>', count:unreadCount},
     {label:'Поддержка', route:'#/support', icon:'<circle cx="12" cy="12" r="9"/><path d="M12 16 V16.1 M12 8 C13.5 8 14.5 9 14.5 10.2 C14.5 11.8 12 12 12 14"/>'},
     {label:'Настройки', route:'#/app-settings', icon:'<circle cx="12" cy="12" r="3"/><path d="M4 12 H2 M22 12 H20 M12 4 V2 M12 22 V20 M6 6 L4.6 4.6 M19.4 19.4 L18 18 M18 6 L19.4 4.6 M4.6 19.4 L6 18"/>'},
-    {label:'Админ-панель (демо)', route:'#/admin', icon:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9 H21 M8 15 H9 M12 15 H16"/>'},
   ];
+  // Пункт "Админ-панель" виден только реальным администраторам (роль подтверждена сервером
+  // по Telegram ID), обычный покупатель этот пункт меню вообще не видит.
+  if (apiRole==='admin'){
+    rows.push({label:'Админ-панель', route:'#/admin', icon:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9 H21 M8 15 H9 M12 15 H16"/>'});
+  }
 
   return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
   + '<div style="position:relative;overflow:hidden;padding:30px 20px 34px;display:flex;align-items:center;gap:16px;">'
@@ -1273,6 +1434,7 @@ function screenProfile(){
 }
 
 function screenOrders(){
+  if (!state.myOrdersLoaded){ loadMyOrders(); return screenLoadingPlaceholder(); }
   const tab = state.ordersTab || 'current';
   const filtered = state.orders.filter(o=>tab==='current' ? (o.status!=='delivered' && o.status!=='cancelled') : o.status==='delivered').slice().reverse();
   return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
@@ -1301,8 +1463,8 @@ function screenOrders(){
 
 function screenOrderDetail(idParam){
   const id = parseInt(idParam,10);
-  const o = state.orders.find(x=>x.id===id);
-  if (!o){ go('#/orders'); return ''; }
+  const o = getCachedOrder(id);
+  if (!o) return screenLoadingPlaceholder();
   const pieces = cartTotalPieces(o.items);
   const delivery = state.deliveryOptions.find(d=>d.id===o.delivery.id) || state.deliveryOptions[0];
   const statusLabel = ORDER_STATUS_LABELS[o.status] || o.status;
@@ -1372,59 +1534,53 @@ function isPhoneBlocked(phone){
   return (state.blockedCustomers||[]).indexOf(digits) !== -1;
 }
 
-function handleConfirmDelivery(){
-  const d = state.deliveryOptions.find(x=>x.id===state.checkoutForm.delivery) || state.deliveryOptions[0];
-  const subtotal = cartTotalPrice(state.cart);
-  const discount = state.appliedPromo ? state.appliedPromo.discount : 0;
-  const total = Math.max(0, subtotal-discount);
-  const order = {
-    id: state.nextOrderId,
-    dateLabel: formatToday(),
-    createdAt: new Date().toISOString(),
-    status: 'pending_payment',
-    email: state.checkoutForm.email,
-    items: cartToOrderItems(state.cart),
-    total: total,
-    delivery: { id:d.id, dateRange: formatDateRange(d.minDays, d.maxDays) },
+async function handleConfirmDelivery(){
+  if (state.checkoutSubmitting) return;
+  const payload = {
+    items: state.cart.map(function(e){ return {productId:e.productId, bulk:!!e.bulk, species:e.species}; }),
+    deliveryOptionId: state.checkoutForm.delivery,
+    comment: state.checkoutForm.comment || '',
+    promoCode: (state.appliedPromo && state.appliedPromo.valid) ? state.appliedPromo.code : undefined,
     customer: {
       name: state.checkoutForm.name, phone: state.checkoutForm.phone, email: state.checkoutForm.email,
       city: state.checkoutForm.city, address: state.checkoutForm.address, marketingConsent: !!state.checkoutForm.marketingConsent,
     },
-    statusHistory: [{status:'pending_payment', ts:formatToday(), by:'покупатель'}],
   };
-  state.orders.push(order);
-  state.nextOrderId += 1;
-  if (state.appliedPromo && state.appliedPromo.valid){
-    const promo = (state.promoCodes||[]).find(function(p){ return p.code===state.appliedPromo.code; });
-    if (promo) promo.usedCount = (promo.usedCount||0) + 1;
-  }
-  state.cart = [];
-  state.appliedPromo = null;
-  state.promoMessage = '';
-  state.promoInput = '';
-  state.checkoutForm = { name:'', phone:'+7', email:'', city:'', address:'', comment:'', delivery:'cdek', legalConsent:false, marketingConsent:false };
+  state.checkoutSubmitting = true;
   state.checkoutErrors = {};
-  saveState();
-
-  // ТОЧКА ИНТЕГРАЦИИ С БАНКОМ: здесь сейчас синхронно эмулируется мгновенно успешная оплата.
-  // После подключения реального банка/эквайринга этот вызов confirmPayment() уедет в обработчик
-  // колбэка/вебхука об успешной оплате (заказ до этого момента будет висеть в статусе 'pending_payment').
-  confirmPayment(order.id, { provider:'mock', transactionId:'MOCK-'+order.id });
-  pushNotification('Заказ №'+order.id+': Оплачен', 'Оплата прошла успешно. Спасибо за заказ!', {orderId:order.id});
-
-  go('#/success/'+order.id);
+  render(true);
+  try{
+    const result = await apiFetch('/api/orders', { method:'POST', body: payload });
+    const order = result.order;
+    state.cart = [];
+    state.appliedPromo = null;
+    state.promoMessage = '';
+    state.promoInput = '';
+    state.checkoutForm = { name:'', phone:'+7', email:'', city:'', address:'', comment:'', delivery:'cdek', legalConsent:false, marketingConsent:false };
+    state.myOrdersLoaded = false; // список заказов устарел, перезагрузим при следующем открытии
+    state.checkoutSubmitting = false;
+    saveState();
+    go('#/success/'+order.id);
+  }catch(e){
+    console.error('[order] не удалось оформить заказ', e);
+    state.checkoutSubmitting = false;
+    state.checkoutErrors = { submit: 'Не удалось оформить заказ. Проверьте соединение и попробуйте ещё раз.' };
+    render(true);
+  }
 }
 
 /* ============================== ADMIN: LOGIC ============================== */
 
-function currentAdmin(){ return state.admins.find(function(a){ return a.id===state.admin.currentAdminId; }); }
+// Личность и права администратора теперь приходят с сервера при входе через Telegram
+// (см. authenticateWithBackend) — никакого локального PIN и "выбора личности" больше нет.
+function currentAdmin(){ return apiRole==='admin' ? apiIdentity : null; }
 
 function adminCan(sectionKey){
   const a = currentAdmin();
-  if (!a || a.active===false) return false;
+  if (!a) return false;
   if (a.role==='superadmin') return true;
   if (sectionKey==='admins') return false;
-  return a.permissions.indexOf(sectionKey)!==-1;
+  return (a.permissions||[]).indexOf(sectionKey)!==-1;
 }
 
 function logAdminAction(action){
@@ -1484,8 +1640,8 @@ function adminDraftErrorHTML(){
 /* ============================== ADMIN: SCREENS ============================== */
 
 function screenAdmin(section, param2){
-  if (!state.admin.loggedIn) return screenAdminLogin();
-  if (!state.admin.currentAdminId) return screenAdminPickIdentity();
+  if (!state.authChecked) return screenLoadingPlaceholder();
+  if (apiRole !== 'admin') return screenAdminAccessDenied();
   const sec = section || state.adminSection || 'orders';
   const a = currentAdmin();
   const allowed = sec==='admins' ? !!(a && a.role==='superadmin') : adminCan(sec);
@@ -1532,7 +1688,6 @@ function adminShellHTML(active, bodyHtml){
     + '<button data-admin-logout style="background:transparent;border:1px solid rgba(243,238,227,0.4);color:#F3EEE3;padding:10px 14px;border-radius:9px;font-size:11.5px;font-weight:700;min-height:20px;">Выйти</button>'
     + '<div data-nav="#/home" style="color:#B9D6B4;font-size:12px;cursor:pointer;text-decoration:underline;padding:10px 6px;margin:-10px -6px;">В магазин</div>'
     + '</div></div>'
-    + '<div style="background:#F7E6D3;color:#8A6A3A;font-size:11.5px;padding:8px 20px;">Демо-режим: доступ и права проверяются только в браузере, это не настоящая защита. Реальная авторизация появится вместе с сервером.</div>'
     + '<div style="position:relative;">'
     + '<div id="adminTabsScroll" style="display:flex;gap:8px;padding:14px 20px 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;">'+tabs+'</div>'
     + '<div style="position:absolute;top:0;right:0;bottom:6px;width:30px;background:linear-gradient(to right, rgba(250,247,240,0), #FAF7F0 70%);pointer-events:none;"></div>'
@@ -1541,35 +1696,23 @@ function adminShellHTML(active, bodyHtml){
     + '</div>';
 }
 
-function screenAdminLogin(){
-  const err = state.adminLoginError;
+// Доступ к админ-панели определяется исключительно сервером по проверенному Telegram ID —
+// никакого локального выбора личности или PIN-кода, обычный покупатель этот экран никогда
+// не пройдёт, даже если наберёт адрес #/admin вручную.
+function screenAdminAccessDenied(){
   return '<div style="width:100%;min-height:100vh;background:#21362A;display:flex;align-items:center;justify-content:center;padding:20px;">'
-    + '<div style="background:#FAF7F0;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;">'
-    + '<h1 class="serif" style="font-size:22px;color:#21362A;margin:0 0 6px;">Вход в админ-панель</h1>'
-    + '<p style="font-size:12px;color:#8A968E;margin:0 0 18px;line-height:1.5;">Демо-доступ. PIN нужен только для показа прототипа — это не настоящая авторизация.</p>'
-    + (err ? '<div style="background:#F7E6E0;color:#C97A5A;border-radius:10px;padding:10px 12px;font-size:12px;margin-bottom:12px;">'+err+'</div>' : '')
-    + '<input class="field" type="password" inputmode="numeric" id="adminPinInput" placeholder="PIN" value="'+(state.adminLoginPin||'')+'">'
-    + '<button data-admin-login-submit class="primary-btn">Войти</button>'
-    + '<div data-nav="#/home" style="text-align:center;margin-top:14px;font-size:12px;color:#8A968E;cursor:pointer;">Вернуться в магазин</div>'
-    + '</div></div>';
-}
-
-function screenAdminPickIdentity(){
-  return '<div style="width:100%;min-height:100vh;background:#21362A;display:flex;align-items:center;justify-content:center;padding:20px;">'
-    + '<div style="background:#FAF7F0;border-radius:20px;padding:28px 24px;width:100%;max-width:380px;">'
-    + '<h1 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Войти как…</h1>'
-    + state.admins.filter(function(a){ return a.active!==false; }).map(function(a){
-        return '<div data-admin-select-identity="'+a.id+'" style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1.5px solid #E4DFD2;border-radius:14px;padding:13px 15px;margin-bottom:10px;cursor:pointer;">'
-          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">'+a.name+'</div><div style="font-size:11px;color:#8A968E;">TG ID '+a.telegramId+' · '+(a.role==='superadmin'?'суперадмин':'менеджер')+'</div></div>'
-          + ICONS.chevronRight + '</div>';
-      }).join('')
+    + '<div style="background:#FAF7F0;border-radius:20px;padding:28px 24px;width:100%;max-width:360px;text-align:center;">'
+    + '<h1 class="serif" style="font-size:20px;color:#21362A;margin:0 0 10px;">Доступ ограничен</h1>'
+    + '<p style="font-size:12.5px;color:#8A968E;margin:0 0 18px;line-height:1.6;">Этот раздел доступен только администраторам питомника.</p>'
+    + '<div data-nav="#/home" class="primary-btn" style="display:inline-block;">Вернуться в магазин</div>'
     + '</div></div>';
 }
 
 function screenAdminOrders(){
+  if (!state.adminOrdersLoaded){ loadAdminOrders(); return screenLoadingPlaceholder(); }
   const q = (state.adminOrderQuery||'').toLowerCase();
   const statusFilter = state.adminOrderStatusFilter || 'all';
-  let list = state.orders.slice().reverse();
+  let list = state.adminOrders.slice().reverse();
   if (statusFilter!=='all') list = list.filter(function(o){ return o.status===statusFilter; });
   if (q) list = list.filter(function(o){
     const c = o.customer || {};
@@ -1598,8 +1741,8 @@ function screenAdminOrders(){
 
 function screenAdminOrderDetail(idParam){
   const id = parseInt(idParam,10);
-  const o = state.orders.find(function(x){ return x.id===id; });
-  if (!o) return '<div>Заказ не найден.</div>';
+  const o = getCachedAdminOrder(id);
+  if (!o) return screenLoadingPlaceholder();
   const c = o.customer || {};
   const items = groupEntries(o.items).map(function(g){
     const p = getProduct(g.productId);
@@ -1647,30 +1790,25 @@ function screenAdminOrderDetail(idParam){
     + '</div>';
 }
 
-function handleAdminOrderStatusChange(orderId, newStatus){
-  const o = state.orders.find(function(x){ return x.id===orderId; });
-  if (!o) return;
-  o.status = newStatus;
-  if (!o.statusHistory) o.statusHistory = [];
-  const a = currentAdmin();
-  o.statusHistory.push({status:newStatus, ts:new Date().toLocaleString('ru-RU'), by:(a?a.name:'админ')});
-  logAdminAction('Изменил статус заказа №'+o.id+' на «'+(ORDER_STATUS_LABELS[newStatus]||newStatus)+'»');
-  pushNotification('Заказ №'+o.id+': '+(ORDER_STATUS_LABELS[newStatus]||newStatus), 'Статус вашего заказа изменён на «'+(ORDER_STATUS_LABELS[newStatus]||newStatus)+'».', {orderId:o.id});
-  saveState();
-  render(true);
+// Смена статуса и трек-номер теперь реальные запросы к серверу — сервер сам пишет историю
+// статусов, журнал действий администратора и шлёт уведомление покупателю (и в бота, и в приложение).
+async function handleAdminOrderStatusChange(orderId, newStatus){
+  try{
+    await apiFetch('/api/admin/orders/'+orderId+'/status', { method:'POST', body:{status:newStatus} });
+    if (state.adminOrderDetailCache) delete state.adminOrderDetailCache[orderId];
+    await Promise.all([loadAdminOrders(true), loadAdminOrderDetail(orderId)]);
+  }catch(e){ console.error('[admin] не удалось изменить статус заказа', e); render(true); }
 }
 
-function handleAdminSaveTracking(orderId){
-  const o = state.orders.find(function(x){ return x.id===orderId; });
-  if (!o) return;
+async function handleAdminSaveTracking(orderId){
   const el = document.getElementById('trackingInput');
   const value = el ? el.value.trim() : '';
   if (!value) return;
-  o.trackingNumber = value;
-  logAdminAction('Добавил трек-номер для заказа №'+o.id+': '+value);
-  pushNotification('Заказ №'+o.id+': трек-номер добавлен', 'Трек-номер вашей посылки: '+value+'. Посмотреть и скопировать его можно в заказе.', {orderId:o.id});
-  saveState();
-  render(true);
+  try{
+    await apiFetch('/api/admin/orders/'+orderId+'/tracking', { method:'POST', body:{trackingNumber:value} });
+    if (state.adminOrderDetailCache) delete state.adminOrderDetailCache[orderId];
+    await Promise.all([loadAdminOrders(true), loadAdminOrderDetail(orderId)]);
+  }catch(e){ console.error('[admin] не удалось сохранить трек-номер', e); render(true); }
 }
 
 function screenAdminCustomers(){
@@ -2126,33 +2264,10 @@ function adminPersonalAuditLogHTML(adminId, adminName){
     + '</div></div>';
 }
 
-function handleAdminLoginSubmit(){
-  const pinEl = document.getElementById('adminPinInput');
-  const pin = pinEl ? pinEl.value : state.adminLoginPin;
-  if (pin===ADMIN_DEMO_PIN){
-    state.admin.loggedIn = true;
-    state.adminLoginError = '';
-    state.adminLoginPin = '';
-    saveState();
-    render(true);
-  } else {
-    state.adminLoginError = 'Неверный PIN';
-    render(true);
-  }
-}
-
-function handleAdminSelectIdentity(id){
-  state.admin.currentAdminId = id;
-  logAdminAction('Вошёл в админ-панель');
-  saveState();
-  go('#/admin/'+(state.adminSection||'orders'));
-}
-
 function handleAdminLogout(){
-  logAdminAction('Вышел из админ-панели');
-  state.admin = {loggedIn:false, currentAdminId:null};
-  saveState();
-  go('#/admin');
+  apiToken = null; apiRole = null; apiIdentity = null;
+  try{ sessionStorage.removeItem('zn_api_token'); }catch(e){}
+  go('#/home');
 }
 
 function handleAdminDraftCancel(){
@@ -2276,23 +2391,23 @@ function handleAdminDraftSave(){
 
 /* ============================== NOTIFICATIONS ============================== */
 
-function pushNotification(title, body, meta){
-  state.notifications.unshift({ id: Date.now()+'-'+Math.random().toString(36).slice(2), title:title, body:body, ts:new Date().toLocaleString('ru-RU'), read:false, orderId:(meta&&meta.orderId)||null });
-  if (state.notifications.length>200) state.notifications.length = 200;
-  sendTelegramMessage(title, body);
-  saveState();
-}
-
-// ---- ТОЧКА ИНТЕГРАЦИИ С TELEGRAM-БОТОМ ----
-// Реальную отправку сообщения в Telegram нельзя сделать из браузерного JS: это требует
-// бот-токена, который нельзя безопасно хранить на клиенте. Сейчас — заглушка-эмуляция;
-// при подключении бэкенда с ботом эта функция должна вызвать Bot API sendMessage.
-function sendTelegramMessage(title, body){
-  console.log('[sendTelegramMessage] заглушка: в Telegram отправлено бы сообщение: '+title+' — '+body);
-  return true;
+// Реальные уведомления (и в бота, и сюда) теперь отправляет сервер сам, в момент события
+// (новый заказ, оплата, смена статуса и т.д. — см. notification.service.js на бэкенде).
+// Клиенту остаётся только скачать список и отмечать прочитанное.
+async function loadMyNotifications(force){
+  if (state.notificationsLoaded && !force) return;
+  try{
+    const result = await apiFetch('/api/notifications/mine');
+    state.notifications = result.notifications.map(function(n){
+      return { id:n.id, title:n.title, body:n.body, ts:formatMoscowDateTime(n.created_at), read:n.read, orderId:n.order_id };
+    });
+    state.notificationsLoaded = true;
+    render(true);
+  }catch(e){ console.error('[notifications] не удалось загрузить', e); }
 }
 
 function screenNotifications(){
+  if (!state.notificationsLoaded){ loadMyNotifications(); return screenLoadingPlaceholder(); }
   const list = state.notifications.slice();
   const anyUnread = list.some(function(n){ return !n.read; });
   return '<div style="width:100%;position:relative;background:#FAF7F0;overflow:hidden;padding-bottom:100px;">'
@@ -2310,19 +2425,22 @@ function screenNotifications(){
   + partialNav('profile');
 }
 
-function handleOpenNotification(id){
-  const n = state.notifications.find(function(x){ return x.id===id; });
+async function handleOpenNotification(id){
+  const n = state.notifications.find(function(x){ return String(x.id)===String(id); });
   if (!n) return;
   n.read = true;
-  saveState();
   if (n.orderId) go('#/orders/'+n.orderId);
   else render(true);
+  try{ await apiFetch('/api/notifications/'+n.id+'/read', {method:'PATCH'}); }catch(e){ console.error(e); }
 }
 
-function handleMarkAllNotificationsRead(){
+async function handleMarkAllNotificationsRead(){
+  const unread = state.notifications.filter(function(n){ return !n.read; });
   state.notifications.forEach(function(n){ n.read = true; });
-  saveState();
   render(true);
+  for (const n of unread){
+    try{ await apiFetch('/api/notifications/'+n.id+'/read', {method:'PATCH'}); }catch(e){ console.error(e); }
+  }
 }
 
 /* ============================== FAVORITES ============================== */
@@ -2713,12 +2831,6 @@ document.addEventListener('input', function(e){
 /* ============================== ADMIN EVENTS ============================== */
 
 document.addEventListener('click', function(e){
-  const loginBtn = e.target.closest('[data-admin-login-submit]');
-  if (loginBtn){ handleAdminLoginSubmit(); return; }
-
-  const identityEl = e.target.closest('[data-admin-select-identity]');
-  if (identityEl){ handleAdminSelectIdentity(identityEl.getAttribute('data-admin-select-identity')); return; }
-
   const logoutEl = e.target.closest('[data-admin-logout]');
   if (logoutEl){ handleAdminLogout(); return; }
 
@@ -2844,7 +2956,6 @@ document.addEventListener('click', function(e){
 });
 
 document.addEventListener('input', function(e){
-  if (e.target.id==='adminPinInput'){ state.adminLoginPin = e.target.value; return; }
 
   if (e.target.id==='adminOrderSearch'){
     state.adminOrderQuery = e.target.value;
@@ -3004,6 +3115,15 @@ if (!location.hash || location.hash === '#'){
 }
 tgInit();
 if (!didRestoreHash) render();
+
+// Авторизация и загрузка каталога с сервера — асинхронно, не блокируя первую отрисовку
+// (магазин показывается сразу с локальными данными, потом тихо обновляется реальными).
+(async function(){
+  await authenticateWithBackend();
+  state.authChecked = true;
+  render(true);
+  await loadCatalogFromApi();
+})();
 </script>
 </body>
 </html>
