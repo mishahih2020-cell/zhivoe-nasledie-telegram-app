@@ -148,11 +148,9 @@ const ADMIN_SECTIONS = [
   {key:'admins', label:'Админы'},
 ];
 /* ---- КЛИЕНТ РЕАЛЬНОГО СЕРВЕРА ----
-   Локально (file://, при разработке/тестах) ходим на сервер по http+IP, потому что
-   mixed-content блокировка браузера действует только для страниц, открытых по https.
-   В реальном Telegram-приложении (страница открыта по https с GitHub Pages) обязателен
-   https-адрес сервера, иначе браузер молча заблокирует все запросы. */
-const API_BASE = (location.protocol === 'file:') ? 'http://80.68.156.229' : 'https://pitomniknasledie.ru';
+   Домен и SSL уже настроены, поэтому всегда ходим на настоящий https-адрес сервера,
+   и при разработке (file://), и в реальном Telegram-приложении. */
+const API_BASE = 'https://pitomniknasledie.ru';
 
 let apiToken = null;
 try{ apiToken = sessionStorage.getItem('zn_api_token') || null; }catch(e){}
@@ -1590,22 +1588,6 @@ function logAdminAction(action){
   saveState();
 }
 
-function deriveCustomers(){
-  const map = new Map();
-  state.orders.forEach(function(o){
-    const c = o.customer; if (!c || !c.phone) return;
-    const key = c.phone.replace(/\D/g,'');
-    if (!map.has(key)) map.set(key, { phone:c.phone, phoneKey:key, name:c.name, email:c.email, city:c.city, marketingConsent:!!c.marketingConsent, ordersCount:0, totalSpent:0, lastOrderAt:o.createdAt });
-    const rec = map.get(key);
-    rec.ordersCount += 1;
-    rec.totalSpent += o.total;
-    if (!rec.lastOrderAt || (o.createdAt && o.createdAt > rec.lastOrderAt)){
-      rec.lastOrderAt = o.createdAt; rec.name = c.name; rec.email = c.email; rec.city = c.city; rec.marketingConsent = !!c.marketingConsent;
-    }
-  });
-  return Array.from(map.values());
-}
-
 const PRODUCT_IMAGE_CHOICES = Array.from(new Set(PRODUCTS.map(function(p){ return p.img; })));
 
 function adminInput(field, label, value, type){
@@ -1685,6 +1667,8 @@ function adminShellHTML(active, bodyHtml){
     + '<div style="color:#F3EEE3;font-weight:800;font-size:14px;letter-spacing:0.5px;">'+(state.settings.companyName||'Живое Наследие').toUpperCase()+' · АДМИН</div>'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
     + '<span style="color:#B9D6B4;font-size:12px;">'+(a?a.name+' · '+(a.role==='superadmin'?'суперадмин':'менеджер'):'')+'</span>'
+    + '<button data-admin-refresh style="background:transparent;border:1px solid rgba(243,238,227,0.4);color:#F3EEE3;padding:10px 14px;border-radius:9px;font-size:11.5px;font-weight:700;min-height:20px;display:flex;align-items:center;gap:6px;">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>Обновить</button>'
     + '<button data-admin-logout style="background:transparent;border:1px solid rgba(243,238,227,0.4);color:#F3EEE3;padding:10px 14px;border-radius:9px;font-size:11.5px;font-weight:700;min-height:20px;">Выйти</button>'
     + '<div data-nav="#/home" style="color:#B9D6B4;font-size:12px;cursor:pointer;text-decoration:underline;padding:10px 6px;margin:-10px -6px;">В магазин</div>'
     + '</div></div>'
@@ -1811,77 +1795,101 @@ async function handleAdminSaveTracking(orderId){
   }catch(e){ console.error('[admin] не удалось сохранить трек-номер', e); render(true); }
 }
 
+// Список клиентов — реальные записи из БД: туда попадает КАЖДЫЙ, кто хоть раз открыл бота
+// (строка в customers создаётся при первом же обмене Telegram initData на сессию, см.
+// auth.service.js на сервере), не только те, кто оформил заказ.
+async function loadAdminCustomers(force){
+  if (state.adminCustomersLoaded && !force) return;
+  try{
+    const result = await apiFetch('/api/admin/customers');
+    state.adminCustomers = result.customers;
+    state.adminCustomersLoaded = true;
+    render(true);
+  }catch(e){ console.error('[admin customers] не удалось загрузить', e); }
+}
+
+async function loadAdminCustomerDetail(id, force){
+  if (!force && state.adminCustomerDetailCache && state.adminCustomerDetailCache[id]) return;
+  try{
+    const result = await apiFetch('/api/admin/customers/'+id);
+    state.adminCustomerDetailCache = state.adminCustomerDetailCache || {};
+    state.adminCustomerDetailCache[id] = result;
+    render(true);
+  }catch(e){ console.error('[admin customers] не удалось загрузить клиента', e); }
+}
+
 function screenAdminCustomers(){
+  if (!state.adminCustomersLoaded){ loadAdminCustomers(); return screenLoadingPlaceholder(); }
   const q = (state.adminCustomerQuery||'').toLowerCase();
-  let list = deriveCustomers();
-  if (q) list = list.filter(function(c){ return (c.name||'').toLowerCase().indexOf(q)!==-1 || c.phoneKey.indexOf(q.replace(/\D/g,''))!==-1; });
-  list.sort(function(a,b){ return b.totalSpent-a.totalSpent; });
+  let list = state.adminCustomers.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  if (q) list = list.filter(function(c){
+    return (c.name||'').toLowerCase().indexOf(q)!==-1
+      || (c.phone||'').replace(/\D/g,'').indexOf(q.replace(/\D/g,''))!==-1
+      || String(c.telegram_user_id).indexOf(q)!==-1;
+  });
 
   return '<div>'
     + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Клиенты</h2>'
-    + '<input class="field" id="adminCustomerSearch" style="max-width:280px;" placeholder="Поиск по имени или телефону" value="'+(state.adminCustomerQuery||'')+'">'
+    + '<input class="field" id="adminCustomerSearch" style="max-width:280px;" placeholder="Поиск по имени, телефону или Telegram ID" value="'+(state.adminCustomerQuery||'')+'">'
     + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">'
     + (list.length ? list.map(function(c){
-        const blocked = isPhoneBlocked(c.phone);
-        return '<div data-nav="#/admin/customers/'+c.phoneKey+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap;">'
-          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">'+(c.name||'—')+(blocked?' <span style="color:#C97A5A;font-size:10.5px;">(заблокирован)</span>':'')+'</div><div style="font-size:11.5px;color:#8A968E;">'+c.phone+' · '+(c.marketingConsent?'согласие на рассылку':'без согласия на рассылку')+'</div></div>'
-          + '<div style="text-align:right;"><div style="font-weight:800;font-size:13.5px;">'+formatPrice(c.totalSpent)+'</div><div style="font-size:11px;color:#8A968E;">'+c.ordersCount+' заказ(ов)</div></div>'
+        return '<div data-nav="#/admin/customers/'+c.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap;">'
+          + '<div><div style="font-weight:700;font-size:13.5px;color:#21362A;">'+(c.name||'Без имени (ещё не заказывал)')+(c.blocked?' <span style="color:#C97A5A;font-size:10.5px;">(заблокирован)</span>':'')+'</div><div style="font-size:11.5px;color:#8A968E;">'+(c.phone||'TG ID '+c.telegram_user_id)+' · '+(c.marketing_consent?'согласие на рассылку':'без согласия на рассылку')+'</div></div>'
+          + '<div style="text-align:right;font-size:11px;color:#8A968E;">'+formatMoscowDateTime(c.created_at)+'</div>'
           + '</div>';
       }).join('') : '<div style="color:#A9A398;font-size:13px;padding:20px 0;text-align:center;">Клиентов не найдено</div>')
     + '</div></div>';
 }
 
-// В прототипе нет реальной привязки аккаунта к покупателю (нет бэкенда/авторизации), поэтому
-// избранное хранится только для «текущего пользователя приложения» (state.profile). Показываем
-// его в карточке клиента, только если это тот самый профиль — иначе честно говорим об ограничении.
-function adminCustomerFavoritesHTML(customerPhone){
-  const isThisDeviceUser = (state.profile.phone||'').replace(/\D/g,'')===(customerPhone||'').replace(/\D/g,'');
-  if (!isThisDeviceUser){
-    return '<div style="font-size:11.5px;color:#8A968E;margin-bottom:20px;">Избранное этого клиента недоступно в прототипе без бэкенда: сейчас список избранного привязан к устройству, а не к аккаунту покупателя.</div>';
-  }
-  const favProducts = state.products.filter(function(p){ return (state.favorites||[]).indexOf(p.id)!==-1; });
-  return '<div style="margin-bottom:20px;"><div style="font-weight:700;font-size:13px;margin-bottom:8px;">Избранное</div>'
-    + (favProducts.length ? favProducts.map(function(p){ return '<span class="chip" style="margin:0 6px 6px 0;display:inline-block;">'+p.name+'</span>'; }).join('') : '<div style="color:#A9A398;font-size:12.5px;">Пусто</div>')
-    + '</div>';
-}
-
-function screenAdminCustomerDetail(phoneKey){
-  const c = deriveCustomers().find(function(x){ return x.phoneKey===phoneKey; });
-  if (!c) return '<div>Клиент не найден.</div>';
-  const blocked = isPhoneBlocked(c.phone);
-  const orders = state.orders.filter(function(o){ return o.customer && o.customer.phone.replace(/\D/g,'')===phoneKey; }).slice().reverse();
+function screenAdminCustomerDetail(idParam){
+  const cached = state.adminCustomerDetailCache && state.adminCustomerDetailCache[idParam];
+  if (!cached){ loadAdminCustomerDetail(idParam); return screenLoadingPlaceholder(); }
+  const c = cached.customer;
+  const orders = cached.orders.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
   return '<div>'
     + '<div data-nav="#/admin/customers" style="display:inline-block;cursor:pointer;color:#6B9971;font-size:12.5px;font-weight:700;padding:10px 4px;margin:-10px 0 6px -4px;">← Ко всем клиентам</div>'
-    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 6px;">'+(c.name||'—')+'</h2>'
-    + '<div style="font-size:12.5px;color:#8A968E;margin-bottom:16px;">'+c.phone+' · '+(c.email||'')+' · '+(c.city||'')+'</div>'
+    + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 6px;">'+(c.name||'Без имени')+'</h2>'
+    + '<div style="font-size:12.5px;color:#8A968E;margin-bottom:16px;">'+(c.phone||'—')+' · '+(c.email||'—')+' · '+(c.city||'—')+' · Telegram ID '+c.telegram_user_id+'</div>'
     + '<div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">'
-    + adminStatCard('Всего заказов', c.ordersCount)
-    + adminStatCard('Сумма покупок', formatPrice(c.totalSpent))
-    + adminStatCard('Рекламная рассылка', c.marketingConsent?'Согласие есть':'Нет согласия')
+    + adminStatCard('Всего заказов', orders.length)
+    + adminStatCard('Рекламная рассылка', c.marketing_consent?'Согласие есть':'Нет согласия')
+    + adminStatCard('В базе с', formatMoscowDateTime(c.created_at))
     + '</div>'
-    + '<button data-admin-'+(blocked?'unblock':'block')+'-customer="'+c.phone+'" style="padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:700;border:1.5px solid '+(blocked?'#5A8D5F':'#C97A5A')+';background:#fff;color:'+(blocked?'#5A8D5F':'#C97A5A')+';margin-bottom:20px;">'+(blocked?'Разблокировать клиента':'Заблокировать клиента (запретить покупки)')+'</button>'
-    + adminCustomerFavoritesHTML(c.phone)
+    + '<button data-admin-'+(c.blocked?'unblock':'block')+'-customer="'+c.id+'" style="padding:10px 16px;border-radius:10px;font-size:12.5px;font-weight:700;border:1.5px solid '+(c.blocked?'#5A8D5F':'#C97A5A')+';background:#fff;color:'+(c.blocked?'#5A8D5F':'#C97A5A')+';margin-bottom:20px;">'+(c.blocked?'Разблокировать клиента':'Заблокировать клиента (запретить покупки)')+'</button>'
     + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">История заказов</div>'
-    + orders.map(function(o){
+    + (orders.length ? orders.map(function(o){
         return '<div data-nav="#/admin/orders/'+o.id+'" style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;cursor:pointer;">'
-          + '<span style="font-size:12.5px;">№'+o.id+' · '+formatMoscowDateTime(o.createdAt)+'</span>'
+          + '<span style="font-size:12.5px;">№'+o.id+' · '+formatMoscowDateTime(o.created_at)+'</span>'
           + '<span style="'+(ORDER_STATUS_STYLES[o.status]||'')+'font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;">'+(ORDER_STATUS_LABELS[o.status]||o.status)+'</span>'
           + '</div>';
-      }).join('')
+      }).join('') : '<div style="color:#A9A398;font-size:12.5px;">Заказов ещё не было</div>')
     + '</div>';
 }
 
-function handleAdminBlockCustomer(phone, block){
-  const digits = (phone||'').replace(/\D/g,'');
-  if (block){
-    if (state.blockedCustomers.indexOf(digits)===-1) state.blockedCustomers.push(digits);
-    logAdminAction('Заблокировал клиента '+phone);
+// Кнопка "Обновить" в шапке админ-панели — принудительно перезапрашивает данные текущего
+// раздела с сервера, чтобы увидеть новые заказы/клиентов без выхода и повторного входа.
+async function handleAdminRefresh(){
+  const route = parseRoute();
+  const sec = route.param || state.adminSection || 'orders';
+  if (sec==='orders'){
+    await loadAdminOrders(true);
+    if (route.param2) await loadAdminOrderDetail(route.param2);
+  } else if (sec==='customers'){
+    await loadAdminCustomers(true);
+    if (route.param2) await loadAdminCustomerDetail(route.param2, true);
+  } else if (sec==='broadcasts'){
+    await Promise.all([loadAdminCustomers(true), loadAdminBroadcastHistory(true)]);
   } else {
-    state.blockedCustomers = state.blockedCustomers.filter(function(d){ return d!==digits; });
-    logAdminAction('Разблокировал клиента '+phone);
+    render(true);
   }
-  saveState();
-  render(true);
+}
+
+async function handleAdminBlockCustomer(customerId, block){
+  try{
+    await apiFetch('/api/admin/customers/'+customerId+'/'+(block?'block':'unblock'), { method:'POST' });
+    if (state.adminCustomerDetailCache) delete state.adminCustomerDetailCache[customerId];
+    await Promise.all([loadAdminCustomers(true), loadAdminCustomerDetail(customerId, true)]);
+  }catch(e){ console.error('[admin] не удалось изменить блокировку клиента', e); render(true); }
 }
 
 function screenAdminCatalog(param2){
@@ -2060,10 +2068,24 @@ function screenAdminDeliveryForm(){
     + '</div></div>';
 }
 
+// История рассылок отдельной таблицы на сервере не заводили — переиспользуем общий журнал
+// действий администратора (там уже пишется запись при каждой отправке, target_type='broadcast').
+async function loadAdminBroadcastHistory(force){
+  if (state.adminBroadcastHistoryLoaded && !force) return;
+  try{
+    const result = await apiFetch('/api/admin/audit-log');
+    state.adminBroadcastHistory = result.entries.filter(function(e){ return e.target_type==='broadcast'; });
+    state.adminBroadcastHistoryLoaded = true;
+    render(true);
+  }catch(e){ console.error('[admin broadcasts] не удалось загрузить историю', e); }
+}
+
 function screenAdminBroadcasts(){
+  if (!state.adminCustomersLoaded){ loadAdminCustomers(); return screenLoadingPlaceholder(); }
+  if (!state.adminBroadcastHistoryLoaded) loadAdminBroadcastHistory();
   const draft = state.broadcastDraft || {text:'', audience:'consented'};
-  const customers = deriveCustomers();
-  const recipients = draft.audience==='all' ? customers.length : customers.filter(function(c){ return c.marketingConsent; }).length;
+  const customers = state.adminCustomers.filter(function(c){ return !c.blocked; });
+  const recipients = draft.audience==='all' ? customers.length : customers.filter(function(c){ return c.marketing_consent; }).length;
   const confirming = !!state.adminBroadcastConfirm;
   return '<div>'
     + '<h2 class="serif" style="font-size:20px;color:#21362A;margin:0 0 14px;">Рассылки</h2>'
@@ -2075,7 +2097,7 @@ function screenAdminBroadcasts(){
     + '</select></div>'
     + '<div style="margin-bottom:10px;"><label style="display:block;font-size:11px;color:#8A968E;margin-bottom:4px;">Текст сообщения</label>'
     + '<textarea class="field" style="margin-bottom:0;min-height:90px;" data-admin-broadcast-field="text">'+(draft.text||'')+'</textarea></div>'
-    + '<div style="font-size:11.5px;color:#8A968E;margin-bottom:12px;">Получат сообщение: <b>'+recipients+'</b> клиент(ов)'+(draft.audience==='all' && customers.some(function(c){ return !c.marketingConsent; }) ? ' — включая тех, кто не давал согласия на рекламу; используйте с осторожностью' : '')+'</div>'
+    + '<div style="font-size:11.5px;color:#8A968E;margin-bottom:12px;">Получат сообщение: <b>'+recipients+'</b> клиент(ов)'+(draft.audience==='all' && customers.some(function(c){ return !c.marketing_consent; }) ? ' — включая тех, кто не давал согласия на рекламу; используйте с осторожностью' : '')+'</div>'
     + (draft.text ? ('<div style="background:#F3EEE3;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#4A564E;margin-bottom:12px;"><b>Предпросмотр:</b><br>'+draft.text.replace(/\n/g,'<br>')+'</div>') : '')
     + (confirming
         ? ('<div style="background:#FFF7E8;border:1px solid #EAD9AE;border-radius:10px;padding:12px 14px;font-size:12.5px;margin-bottom:12px;">Отправить это сообщение '+recipients+' клиент(ам)?</div>'
@@ -2084,23 +2106,21 @@ function screenAdminBroadcasts(){
         : ('<button data-admin-broadcast-send class="primary-btn" style="width:auto;padding:11px 18px;">Отправить</button>'))
     + '</div>'
     + '<div style="font-weight:700;font-size:13px;margin-bottom:10px;">История рассылок</div>'
-    + (state.broadcasts.length ? state.broadcasts.slice().reverse().map(function(b){
-        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;"><div style="font-size:11.5px;color:#8A968E;">'+b.ts+' · '+(b.audience==='all'?'всем':'с согласием')+' · получателей: '+b.sentCount+'</div><div style="font-size:12.5px;margin-top:4px;">'+b.text+'</div></div>';
+    + ((state.adminBroadcastHistory||[]).length ? state.adminBroadcastHistory.map(function(b){
+        return '<div style="background:#fff;border:1px solid #ECE7DA;border-radius:12px;padding:12px 14px;margin-bottom:8px;"><div style="font-size:11.5px;color:#8A968E;">'+formatMoscowDateTime(b.ts)+'</div><div style="font-size:12.5px;margin-top:4px;">'+b.action+'</div></div>';
       }).join('') : '<div style="color:#A9A398;font-size:13px;">Рассылок ещё не было</div>')
     + '</div>';
 }
 
-function handleAdminBroadcastConfirmSend(){
+async function handleAdminBroadcastConfirmSend(){
   const draft = state.broadcastDraft || {text:'', audience:'consented'};
   if (!draft.text || !draft.text.trim()) return;
-  const customers = deriveCustomers();
-  const recipients = draft.audience==='all' ? customers.length : customers.filter(function(c){ return c.marketingConsent; }).length;
-  state.broadcasts.push({ id:Date.now(), ts:new Date().toLocaleString('ru-RU'), text:draft.text, audience:draft.audience, sentCount:recipients });
-  logAdminAction('Отправил рассылку ('+(draft.audience==='all'?'всем':'с согласием')+', получателей: '+recipients+')');
-  state.broadcastDraft = {text:'', audience:'consented'};
-  state.adminBroadcastConfirm = false;
-  saveState();
-  render(true);
+  try{
+    await apiFetch('/api/admin/broadcasts', { method:'POST', body:{ text:draft.text, audience:draft.audience } });
+    state.broadcastDraft = {text:'', audience:'consented'};
+    state.adminBroadcastConfirm = false;
+    await loadAdminBroadcastHistory(true);
+  }catch(e){ console.error('[admin] не удалось отправить рассылку', e); render(true); }
 }
 
 function screenAdminAnalytics(){
@@ -2833,6 +2853,9 @@ document.addEventListener('input', function(e){
 document.addEventListener('click', function(e){
   const logoutEl = e.target.closest('[data-admin-logout]');
   if (logoutEl){ handleAdminLogout(); return; }
+
+  const refreshEl = e.target.closest('[data-admin-refresh]');
+  if (refreshEl){ handleAdminRefresh(); return; }
 
   const statusEl = e.target.closest('[data-admin-order-status]');
   if (statusEl){
