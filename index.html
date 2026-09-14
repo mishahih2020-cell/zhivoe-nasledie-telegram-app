@@ -181,23 +181,34 @@ async function apiFetch(path, opts){
 // null, если Telegram initData недоступна (например открыли файл напрямую в браузере).
 async function authenticateWithBackend(){
   const initData = tg ? tg.initData : '';
-  if (!initData){
-    console.warn('[auth] нет tg.initData — вероятно, открыто не из Telegram');
-    return null;
+  if (initData){
+    try{
+      const result = await apiFetch('/api/auth/telegram', { method:'POST', body:{initData: initData} });
+      apiToken = result.token;
+      apiRole = result.role;
+      apiIdentity = result.role==='admin' ? result.admin : result.customer;
+      try{ sessionStorage.setItem('zn_api_token', apiToken); }catch(e){}
+      return apiRole;
+    }catch(e){
+      console.error('[auth] обмен initData на сессию не удался', e);
+    }
   }
-  try{
-    const result = await apiFetch('/api/auth/telegram', { method:'POST', body:{initData: initData} });
-    apiToken = result.token;
-    apiRole = result.role;
-    apiIdentity = result.role==='admin' ? result.admin : result.customer;
-    try{ sessionStorage.setItem('zn_api_token', apiToken); }catch(e){}
-    return apiRole;
-  }catch(e){
-    console.error('[auth] не удалось авторизоваться на сервере', e);
-    apiToken = null; apiRole = null; apiIdentity = null;
-    try{ sessionStorage.removeItem('zn_api_token'); }catch(e2){}
-    return null;
+  // initData недоступна (например страница открылась после возврата с внешней оплаты вне Telegram)
+  // или обмен не удался — пробуем воспользоваться уже сохранённым токеном сессии вместо того,
+  // чтобы ошибочно разлогинивать уже авторизованного человека.
+  if (apiToken){
+    try{
+      const me = await apiFetch('/api/profile/me');
+      apiRole = me.role;
+      apiIdentity = me.role==='admin' ? me.admin : me.customer;
+      return apiRole;
+    }catch(e){
+      console.warn('[auth] сохранённый токен сессии недействителен', e);
+    }
   }
+  apiToken = null; apiRole = null; apiIdentity = null;
+  try{ sessionStorage.removeItem('zn_api_token'); }catch(e2){}
+  return null;
 }
 
 // Товар с сервера накладывается поверх локального "шаблона" (фото, латинское название,
@@ -1558,7 +1569,14 @@ async function handleConfirmDelivery(){
     state.myOrdersLoaded = false; // список заказов устарел, перезагрузим при следующем открытии
     state.checkoutSubmitting = false;
     saveState();
-    go('#/success/'+order.id);
+    if (result.paymentUrl){
+      // Уходим на настоящую страницу оплаты банка. Токен сессии уже сохранён в sessionStorage
+      // (см. authenticateWithBackend) — после оплаты банк вернёт браузер на #/success/<id> и
+      // приложение подхватит сохранённую сессию, даже если initData на этот момент недоступна.
+      window.location.href = result.paymentUrl;
+    } else {
+      go('#/success/'+order.id);
+    }
   }catch(e){
     console.error('[order] не удалось оформить заказ', e);
     state.checkoutSubmitting = false;
