@@ -1580,7 +1580,10 @@ async function handleConfirmDelivery(){
   }catch(e){
     console.error('[order] не удалось оформить заказ', e);
     state.checkoutSubmitting = false;
-    state.checkoutErrors = { submit: 'Не удалось оформить заказ. Проверьте соединение и попробуйте ещё раз.' };
+    const message = e.message==='customers_only'
+      ? 'Этот Telegram-аккаунт зарегистрирован как администратор магазина — с него нельзя оформлять заказы. Попробуйте с другого аккаунта.'
+      : 'Не удалось оформить заказ. Проверьте соединение и попробуйте ещё раз.';
+    state.checkoutErrors = { submit: message };
     render(true);
   }
 }
